@@ -1,4 +1,6 @@
-# **CS 495 - PhysioGaming**
+# **CS 495 - Multi-User Physiological Computing**
+<details>
+<summary>Archived README (forked repository)</summary>
 
 ## *Software Installation*
 
@@ -165,3 +167,21 @@ Once the game is built and running, the sensor can be connected. This process is
 	A: In our case, we felt it was in our best interest to hold onto older models in case a training iteration greatly reduced the accuracy of our model.
 	   If you feel the need to declutter, feel free to delete older files that you feel will not be needed any longer.
 
+</details>
+
+
+## Project Goal
+
+## Project Status
+
+## Major Features
+
+## Project Management
+
+## Documentation — Handoff
+
+## Course / Process Records
+
+## Testing
+
+## Iteration Submission Tags

@@ -2,6 +2,8 @@
 <details>
 <summary>Archived README (forked repository)</summary>
 
+# CS 495 - PhysioGaming
+
 ## *Software Installation*
 
 ### Unity:

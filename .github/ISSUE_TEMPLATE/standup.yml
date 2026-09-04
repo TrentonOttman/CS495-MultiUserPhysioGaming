@@ -1,0 +1,41 @@
+name: Formal Stand-Up Meeting
+description: One issue per formal meeting; each student comments during the meeting
+title: "[STAND-UP] "
+labels: ["stand-up"]
+body:
+  - type: input
+    id: date
+    attributes:
+      label: Meeting Date
+    validations:
+      required: true
+  - type: dropdown
+    id: location
+    attributes:
+      label: Meeting Type
+      options: [In class, Outside class]
+    validations:
+      required: true
+  - type: input
+    id: iteration
+    attributes:
+      label: Iteration
+    validations:
+      required: true
+  - type: textarea
+    id: attendees
+    attributes:
+      label: Attendees
+    validations:
+      required: true
+  - type: markdown
+    attributes:
+      value: |
+        Each student posts their own comment **during the meeting**:
+        - Previous commitment and outcome
+        - Evidence
+        - Work completed
+        - Next commitment
+        - Blockers/dependencies
+        - Collaboration/help
+        - Material AI use, if applicable

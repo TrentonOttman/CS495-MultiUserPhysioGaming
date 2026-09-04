@@ -1,0 +1,40 @@
+name: Product Backlog Item
+description: User/stakeholder need or product outcome
+title: "[PBI] "
+labels: ["type:feature"]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: User / Stakeholder Need
+      placeholder: As a ..., I want ..., so that ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context / Constraints
+      placeholder: Known constraints, assumptions, dependencies, and unresolved design questions. 
+  - type: textarea
+    id: testing
+    attributes:
+      label: Testing Considerations
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Completion Evidence
+      description: Fill/update before moving to Done.
+  - type: textarea
+    id: ai
+    attributes:
+      label: Material AI Assistance
+      description: Tool, contribution, human review/changes, and verification when applicable.

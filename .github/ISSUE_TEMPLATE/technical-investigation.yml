@@ -1,0 +1,26 @@
+name: Technical Investigation / Spike
+description: Resolve engineering uncertainty before committing to a solution
+title: "[SPIKE] "
+labels: ["type:investigation"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+    validations:
+      required: true
+  - type: textarea
+    id: criteria
+    attributes:
+      label: Evaluation Criteria
+    validations:
+      required: true
+  - type: input
+    id: timebox
+    attributes:
+      label: Timebox
+      placeholder: e.g., 4 hours
+  - type: textarea
+    id: deliverable
+    attributes:
+      label: Expected Evidence / Deliverable

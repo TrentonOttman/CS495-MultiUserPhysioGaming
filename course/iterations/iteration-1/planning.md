@@ -19,4 +19,6 @@
 - Must be a web app.
 
 ## Selected Work
-Use the GitHub **Iteration 1 Plan** view as the living detailed plan. Record important scope/priority decisions here.
+Use the GitHub **Iteration 1 Plan** view as the living detailed plan.
+
+The highest priority item is creating the multiplayer environment.

@@ -1,4 +1,7 @@
 # **CS 495 - Multi-User Physiological Computing**
+
+This repository represents a semester long project for CS 495 at The University of Alabama. The repository is forked from a previous semester's work. The original README can be seen below:
+
 <details>
 <summary>Archived README (forked repository)</summary>
 
@@ -171,19 +174,61 @@ Once the game is built and running, the sensor can be connected. This process is
 
 </details>
 
+**Project team members:** Trenton Ottman, Zara Ahmed, James Adler, Ansel Stinnett, and Jackson Wallace.
+
+**Project stakeholder:** Dr. Chris S. Crawford
 
 ## Project Goal
 
+The goal of this project is to develop a web-based, real-time multiplayer game controlled by physiological input devices. The game is designed to provide an engaging and accessible experience that allows K-12 students to participate with minimal technical or gameplay experience.
+
 ## Project Status
+
+Previous work has established a single-player experience using a physiological input device. This project extends that work by developing a real-time multiplayer experience capable of supporting multiple physiological input devices simultaneously.
+
+The project is currently in the planning and research phase, with ongoing investigation into the game design, technical architecture, and technologies required to support the multiplayer experience.
 
 ## Major Features
 
+Known major features of the finished project will include:
+- **Browser-based:** The game can be played directly in a web browser.
+- **Multiplayer:** Supports 2–12 players using physiological input devices simultaneously.
+- **Physiological input:** Uses forearm muscle activity as the primary gameplay input.
+- **Real-time interaction:** Supports real-time communication and interaction between players.
+- **Classroom accessibility:** Designed to be approachable and engaging for K-12 students in a classroom environment.
+
 ## Project Management
+
+The project is managed through [this repository](https://github.com/TrentonOttman/CS495-MultiUserPhysioGaming) and the associated [GitHub Project](https://github.com/users/TrentonOttman/projects/1).
+
+Group communication is done by text message, Teams, Discord, and in-person.
 
 ## Documentation — Handoff
 
+Durable documentation intended for users, sponsors, future developers, deployers, and maintainers lives under [`docs/`](docs/):
+- [Development Guide](docs/development-guide/)
+- [User Guide](docs/user-guide/)
+- [Deployment Guide](docs/deployment-guide/)
+- [Testing Plan](docs/testing/test-plan.md)
+- [Project Handoff FAQ](docs/faq/)
+- [Security](docs/security/)
+- [Decisions](docs/decisions/)
+- [Investigations](docs/investigations/)
+- [Recommendations](docs/recommendations/)
+
 ## Course / Process Records
+Semester-specific records live under [`course/`](course/):
+- presentation PDFs under `course/presentations/`
+- iteration planning, review, and retrospective documents under `course/iterations/iteration-N/`
+
+These records remain in version control for grading/history but are separate from the handoff documentation set. Formal stand-ups are GitHub Issues/comments, not Markdown files.
 
 ## Testing
 
+Currently, no testing procedure has been set up.
+
 ## Iteration Submission Tags
+
+- `iteration-1-submission`
+- `iteration-2-submission`
+- `iteration-3-submission`

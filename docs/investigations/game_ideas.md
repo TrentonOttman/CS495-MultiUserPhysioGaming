@@ -1,0 +1,36 @@
+# Game Ideas
+- The simplest option would likely be to continue off of the jetpack ("FlyWorld") prototype and make it a racing game
+  - The controls would largely stay the same
+  - The maps would probably have to be slightly wider and/or longer
+  - There is potential for power-ups (like Mario Kart) and/or speed boosts/bumps (like hoops to go through, etc.)
+- A stealth game that involves heists, or any other objective that involves going unnoticed
+  - WASD movement and regular keyboard controls for the most part
+  - The sensor detecting tensed up muscles could blow someone's cover/get noticed by enemies(?). Basically, it would act as a threshold and force everyone to play calmly or get caught
+  - Group based objective (like a getting a treasure out of a highly guarded safe, ransacking a museum, etc.)
+- PvP FPS
+  - One of the most popular genres today
+  - Most unfeasible idea here.
+  - The sensor's gimmick could do with reload, preventing overheating, etc
+  - Requires little to no lag and high feedback. It's doable, but overall, it's an impractical goal to reach towards in our timeframe.
+- Creature-Catcher (like Pokemon)
+  - Regular movement, but capture bonuses when motioning throwing a copyright-friendly Pokeball.
+  - Small open world to encounter the creatures.
+  - Mainly PvE but could also be PvP with the creatures.
+- RPG-esque PvE Combat
+  - Three classes such as mage, knight, and tank
+  - The sensor's input could be a specific spell for the mage, a particular sword movement for the knight, or bringing up the sheild for the tank
+  - PvE fighting off enemies as a group as the levels progress, culminating in a boss fight.
+- Fishing
+  - Our first mentioned idea
+  - Shared resource (pool, lake, ocean, etc.) with competing to catch the most and/best fish
+  - Sensor would mimic the notorious minigame of reeling in the fish 
+
+  # Current contender: RPG
+  - Wave based combat is also a possibility.
+  - Having whole actions dependent on the sensor input might get frustrating, so it might be better to utilize it for bonuses.
+    - For example, a mage has a spell and tensing the arm muscle at the right time will guarantee a heal bonus (or something like that)
+    - Knight could get a crit bonus
+    - Tank could get a temporary barrier bonus
+  - Wave based might be more difficult with the number of entities.
+  - Could have puzzles alongside combat to encourage different types of players (kids)
+  - Third class could be something else like a rogue/assassin to utilize the aforementioned stealth mechanic

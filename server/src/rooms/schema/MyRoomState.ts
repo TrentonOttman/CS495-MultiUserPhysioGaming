@@ -11,22 +11,22 @@ import { schema, t, type SchemaType } from "@colyseus/schema";
  * clamp is what actually enforces it against a modified client.
  */
 export const MoveInput = schema({
-  moveX: t.int8<-1 | 0 | 1>(),
-  moveY: t.int8<-1 | 0 | 1>(),
+    moveX: t.int8<-1 | 0 | 1>(),
+    moveY: t.int8<-1 | 0 | 1>(),
 });
 export type MoveInput = SchemaType<typeof MoveInput>;
 
 export const Player = schema({
-  x: t.number(),
-  y: t.number(),
-  vx: t.number(),
-  vy: t.number(),
+    x: t.number(),
+    y: t.number(),
+    vx: t.number(),
+    vy: t.number(),
 });
 export type Player = SchemaType<typeof Player>;
 
 export const MyRoomState = schema({
 
-  players: t.map(Player),
+    players: t.map(Player),
 
 });
 export type MyRoomState = SchemaType<typeof MyRoomState>;

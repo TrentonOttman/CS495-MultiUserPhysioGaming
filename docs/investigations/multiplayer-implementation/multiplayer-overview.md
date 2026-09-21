@@ -1,4 +1,4 @@
-#Multiplayer Overview
+# Multiplayer Overview
 
 -  We have decided on Colyseus to implement our Multiplayer
 - It is server authoritative, so game balancing will be more feasible at the cost of being more work 

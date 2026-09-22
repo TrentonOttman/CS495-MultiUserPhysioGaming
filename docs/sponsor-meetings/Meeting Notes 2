@@ -1,0 +1,23 @@
+# Meeting Notes 2
+
+- Questions:
+  - Any more game ideas?
+  - What do you think of our current ones?
+  - Unity based multiplayer?
+    - Or Colyseus?
+  - Any particular guidelines for the simulation?
+  - Host authoritative or server authoritative (external server)
+	  - External -> supports lower end devices (but more work and more expensive)
+
+- Meeting Answers:
+  - Server Authoritative -> prevent cheating and balancing; 
+  - Host-> is quicker, better for scope and time
+  - Doesnt like Unity!!
+    - Need to pviot
+  - Mentioned multiplayer mirror (implemented with previously) (steep learning curve) (good performance)
+  - Is fine with us poaching exisiting games and making them multiplayer
+  - Approves a simple demo for Iteration 1 as long as it introduces multiplayer
+  - Gave approval for pong clone demo
+  - Got approval for Colysseus
+
+money for unity, would prefer playroom

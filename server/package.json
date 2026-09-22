@@ -8,7 +8,7 @@
         "node": ">= 22.0.0"
     },
     "scripts": {
-        "start": "vite",
+        "start": "node dist/server/server.mjs",
         "loadtest": "tsx loadtest/example.ts --room my_room --numClients 2",
         "build": "vite build",
         "clean": "rimraf dist",

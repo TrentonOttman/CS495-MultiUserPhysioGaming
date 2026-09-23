@@ -9,6 +9,6 @@ export default defineConfig(({ mode }) => ({
         // want the static client — e.g. deploying it separately from the server.
         // That mode also swaps which .env.* file Vite loads: .env.client, not
         // .env.production. Only matters once you add a VITE_-prefixed var.
-        ...(mode === "client" ? [] : [colyseus({ serverEntry: "/src/app.config.ts", port: 8080, })]),
+        ...(mode === "client" ? [] : [colyseus({ serverEntry: "/src/app.config.ts", port: 8080, serveClient: true, })]),
     ],
 }));

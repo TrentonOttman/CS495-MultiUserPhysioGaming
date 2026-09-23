@@ -1,11 +1,13 @@
 import { ColyseusSDK, Callbacks } from "@colyseus/sdk";
 import { Predict } from "@colyseus/sdk/predict";
 import type { default as server } from "../app.config.js";
-import type { MoveInput } from "../rooms/schema/MyRoomState.js";
+import type { MoveInput } from "../rooms/schema/PongState.js";
 import { stepEntity } from "../shared/movement.js";
 
 const statusEl = document.getElementById("status")!;
 const arenaEl = document.getElementById("arena")!;
+
+const score = document.getElementById("score");
 
 const client = new ColyseusSDK<typeof server>(
     `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`
@@ -24,7 +26,7 @@ function axis(negative: string[], positive: string[]): -1 | 0 | 1 {
 }
 
 async function main() {
-    const room = await client.joinOrCreate("my_room");
+    const room = await client.joinOrCreate("pong_room");
     const predict = Predict.get(room);
 
     // Other players' inputs aren't ours to predict: interpolate them toward the
@@ -51,6 +53,10 @@ async function main() {
     const nodes = new Map<string, HTMLElement>();
     const callbacks = Callbacks.get(room);
 
+    const ballDiv = document.createElement("div");
+    ballDiv.className = "ball";
+    arenaEl.appendChild(ballDiv);
+
     callbacks.onAdd("players", (_player, sessionId) => {
         const node = document.createElement("div");
         node.className = sessionId === room.sessionId ? "player self" : "player";
@@ -76,7 +82,7 @@ async function main() {
         const steps = predict.tick(now);
 
         for (let i = 0; i < steps; i++) {
-            input.data.moveX = axis(["a", "arrowleft"], ["d", "arrowright"]);
+            // input.data.moveX = axis(["a", "arrowleft"], ["d", "arrowright"]);
             input.data.moveY = axis(["w", "arrowup"], ["s", "arrowdown"]);
             input.send();
         }
@@ -85,8 +91,14 @@ async function main() {
             const node = nodes.get(sessionId);
             if (!node) { continue; }
             // Predicted for us, interpolated for everyone else — one read either way.
-            node.style.transform = `translate(${predict.value(player, "x")}px, ${predict.value(player, "y")}px)`;
+            // node.style.transform = `translate(${predict.value(player, "x")}px, ${predict.value(player, "y")}px)`;
+            node.style.transform = `translate(${player.position.x}px, ${player.position.y}px) translate(-50%, -50%)`;
         }
+
+        const ballState = room.state.ball;
+        ballDiv.style.transform = `translate(${ballState.position.x}px, ${ballState.position.y}px) translate(-50%, -50%)`;
+
+        score.textContent = `${room.state.leftScore} | ${room.state.rightScore}`;
 
         requestAnimationFrame(frame);
     }

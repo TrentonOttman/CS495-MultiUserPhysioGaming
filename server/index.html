@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="data:," />
-    <title>Colyseus</title>
+    <title>Iteration 1: Pong</title>
     <style>
         body {
             font: 16px/1.5 system-ui, sans-serif;
@@ -31,10 +31,18 @@
         .player {
             position: absolute;
             width: 24px;
-            height: 24px;
-            margin: -12px 0 0 -12px;
+            height: 100px;
             border-radius: 4px;
             background: #4ea1ff;
+            will-change: transform;
+        }
+
+        .ball {
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #5e0000;
             will-change: transform;
         }
 
@@ -45,10 +53,13 @@
 </head>
 
 <body>
-    <h1>Colyseus</h1>
+    <h1>Iteration 1: Pong</h1>
     <p id="status">Connecting…</p>
+    <div>
+        <h1 style="text-align: center;" id="score">0 | 0</h1>
+    </div>
     <div id="arena"></div>
-    <p>Move with <kbd>WASD</kbd> or the arrow keys. Open a second tab to see another player.</p>
+    <p>Move with <kbd>WS</kbd> or the arrow keys. Open a second tab to see another player and start the game.</p>
     <p><a href="/playground">Playground</a> · <a href="/monitor">Monitor</a></p>
     <script type="module" src="/src/client/index.ts"></script>
 </body>

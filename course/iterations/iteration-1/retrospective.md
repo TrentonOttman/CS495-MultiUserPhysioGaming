@@ -14,6 +14,7 @@
 - Change the links to be accesible with a password
 - Rip out Pong (no longer useful past proof of concept)
   - Instead focus on more applicable game dev.
+- Add sensor input functionality
 
 ## ACTIONS
 - N/A: GitHub actions were done

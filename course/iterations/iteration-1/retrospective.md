@@ -2,15 +2,16 @@
 
 ## KEEP
 - Multiplayer Colyseus
-- Keep pong keyboard inputs while also committing to test sensor integration with the multiplayer in Iteration 2
 
 ## PROBLEM
 - Scope is kind of small
--  Room viewer/manager
+- Room viewer/manager
 - Relatively Insecure
 
 ## CHANGE
 - Change the links to be accesible with a password
+- Rip out Pong (no longer useful past proof of concept)
+  - Instead focus on more applicable game dev.
 
 ## ACTIONS
 - N/A: GitHub actions were done

@@ -30,3 +30,4 @@
 
 ## Resulting Backlog Changes
 - Less complex ideas than we originally had for game design; Multiplayer fully pushed as the focus
+- Need to begin implementing sensor input functionality in next iteration

@@ -5,7 +5,9 @@
 
 ## PROBLEM
 - Scope is kind of small
-- Room viewer/manager
+  - No sensor input handling
+  - Not yet supporting 8-12 players concurrently in one room
+- No Room viewer/manager in prod yet
 - Relatively Insecure
 
 ## CHANGE

@@ -1,4 +1,5 @@
 import { schema, t, type SchemaType } from "@colyseus/schema";
+import { LobbyState } from "./LobbyState.js";
 
 export const MoveInput = schema({
     moveY: t.int8<-1 | 0 | 1>(),
@@ -73,10 +74,10 @@ export type Player = SchemaType<typeof Player>;
 export const Ball = MovingEntity.extend({}, "Ball");
 export type Ball = SchemaType<typeof Ball>;
 
-export const PongState = schema({
+export const PongState = LobbyState.extend({
     players: t.map(Player),
     ball: Ball,
     leftScore: t.number().default(0),
     rightScore: t.number().default(0),
-});
+}, "PongState");
 export type PongState = SchemaType<typeof PongState>;

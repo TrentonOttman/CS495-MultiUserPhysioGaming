@@ -18,6 +18,46 @@
             font-weight: 600;
         }
 
+        #lobby {
+            border: 1px solid #8884;
+            border-radius: .5rem;
+            padding: 1rem 1.25rem;
+            margin-bottom: 1.5rem;
+            max-width: 32rem;
+        }
+
+        #lobby h2 {
+            font-size: 1.1rem;
+            margin: 0 0 .75rem;
+        }
+
+        #lobby label {
+            display: block;
+            margin-bottom: .6rem;
+        }
+
+        #lobby fieldset {
+            border: 1px solid #8884;
+            border-radius: .35rem;
+            margin: 0 0 .75rem;
+        }
+
+        #lobby button {
+            font: inherit;
+            padding: .4rem .9rem;
+            border-radius: .35rem;
+            cursor: pointer;
+        }
+
+        #lobby-error {
+            color: #b00020;
+            font-weight: 600;
+        }
+
+        #lobby [hidden] {
+            display: none;
+        }
+
         #arena {
             position: relative;
             width: 800px;
@@ -55,11 +95,13 @@
 <body>
     <h1>Iteration 1: Pong</h1>
     <p id="status">Connecting…</p>
-    <div>
-        <h1 style="text-align: center;" id="score">0 | 0</h1>
+    <div id="game" hidden>
+        <div>
+            <h1 style="text-align: center;" id="score">0 | 0</h1>
+        </div>
+        <div id="arena"></div>
+        <p>Move with <kbd>WS</kbd> or the arrow keys. Open a second tab to see another player and start the game.</p>
     </div>
-    <div id="arena"></div>
-    <p>Move with <kbd>WS</kbd> or the arrow keys. Open a second tab to see another player and start the game.</p>
     <!--<p><a href="/playground">Playground</a> · <a href="/monitor">Monitor</a></p>-->
     <script type="module" src="/src/client/index.ts"></script>
 </body>

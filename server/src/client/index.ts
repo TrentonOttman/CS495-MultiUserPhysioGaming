@@ -1,11 +1,17 @@
-import { ColyseusSDK, Callbacks } from "@colyseus/sdk";
+import { ColyseusSDK, Callbacks, type Room } from "@colyseus/sdk";
 import { Predict } from "@colyseus/sdk/predict";
 import type { default as server } from "../app.config.js";
 import type { MoveInput } from "../rooms/schema/PongState.js";
+import type { LobbyState } from "../rooms/schema/LobbyState.js";
+import type { LobbyRoom as SessionLobby } from "../rooms/LobbyRoom.js";
+import type { PongRoom } from "../rooms/PongRoom.js";
 import { stepEntity } from "../shared/movement.js";
+import { createLobbyScreen } from "./lobby.js";
+import type { LobbyConfig } from "../shared/lobbyConfig.js";
 
 const statusEl = document.getElementById("status")!;
 const arenaEl = document.getElementById("arena")!;
+const gameEl = document.getElementById("game")!;
 
 const score = document.getElementById("score");
 
@@ -25,8 +31,113 @@ function axis(negative: string[], positive: string[]): -1 | 0 | 1 {
     return back ? -1 : 1;
 }
 
-async function main() {
-    const room = await client.joinOrCreate("pong_room");
+/**
+ * Creates the lobby and applies the configuration the host just submitted.
+ *
+ * The game room is never joined from here. The lobby creates it with the chosen
+ * configuration and broadcasts its id, and everyone transitions by id.
+ * `joinById` is used rather than `join` because `join` filters private rooms
+ * out of matchmaking and a lobby may legitimately be private.
+ */
+async function enterLobby(config: LobbyConfig) {
+    const room = await client.create("session_lobby", { gameId: config.gameId });
+
+    // The creator is the host by construction: Colyseus reserves the creating
+    // client's seat in the same request that ran the room's onCreate, so this
+    // client is the first to arrive and the server has already marked it host.
+    room.send("configure", {
+        name: config.name,
+        maxPlayers: config.maxPlayers,
+        isPrivate: config.isPrivate,
+    });
+
+    await attachToLobby(room);
+    statusEl.textContent = `Hosting as ${room.sessionId}`;
+}
+
+/**
+ * Joins an existing lobby by its join code.
+ *
+ * The code is resolved to a room id over HTTP first: the client cannot read a
+ * room's metadata through the SDK, and a private lobby is excluded from both the
+ * room browser and `joinOrCreate`, so the code is the only handle a guest has.
+ *
+ * The code is then passed through as join options because the lobby re-checks it
+ * server-side — resolving it client-side is convenience, not authority.
+ */
+async function joinLobbyByCode(code: string) {
+    const response = await fetch(`/api/lobby/resolve/${encodeURIComponent(code)}`);
+    if (!response.ok) {
+        throw new Error(`Join code lookup failed (${response.status}).`);
+    }
+
+    const { roomId } = await response.json() as { roomId: string | null };
+    if (!roomId) {
+        throw new Error("That join code is not valid. Codes are 6 characters; the lobby may have ended.");
+    }
+
+    const room = await client.joinById<SessionLobby>(roomId, { joinCode: code });
+    await attachToLobby(room);
+    statusEl.textContent = `Joined as ${room.sessionId}`;
+}
+
+/**
+ * Wires an already-joined lobby room to this client's UI. Shared by the host
+ * and by guests joining by code, so both get the same screen and — critically —
+ * the same `gameReady` transition when the host starts the game.
+ */
+async function attachToLobby(room: Room<SessionLobby, LobbyState>) {
+    // `start` is host-only server-side; the button is hidden for guests, and the
+    // room refuses it regardless, so this is safe to leave wired for everyone.
+    lobbyScreen.onStart = () => room.send("start");
+
+    room.onMessage("error", (payload) => {
+        lobbyScreen.clearError();
+        lobbyScreen.showError(payload.error);
+    });
+
+    room.onMessage("gameReady", async ({ roomId }) => {
+        try {
+            await room.leave();
+            await enterGame(roomId);
+        } catch (e) {
+            console.error(e);
+            statusEl.textContent = "Could not enter the game";
+        }
+    });
+
+    room.onLeave(() => {
+        // Leaving the lobby is what happens when the game starts, so this is
+        // not a disconnection.
+        if (gameEl.hidden) { statusEl.textContent = "Left the lobby"; }
+    });
+
+    // Any patch can carry config, roster, host or code changes, so the screen is
+    // redrawn from state rather than only in response to the events that caused it.
+    room.onStateChange(() => {
+        const state = room.state;
+        lobbyScreen.renderLobby({
+            lobbyName: state.lobbyName,
+            maxPlayers: state.maxPlayers,
+            isPrivate: state.isPrivate,
+            gameId: state.gameId,
+            joinCode: state.joinCode,
+            memberCount: state.memberCount,
+            isHost: state.hostId === room.sessionId,
+            status: state.status,
+        });
+    });
+}
+
+/**
+ * Joins a game room by id and starts the render loop. Reached either from a
+ * lobby that started, or from a room id the host shared.
+ */
+async function enterGame(roomId: string) {
+    // Typed explicitly because `roomId` is a runtime string: without the room
+    // type argument the SDK falls back to `Room<any>`, which would erase the
+    // state and input types the rest of this function depends on.
+    const room = await client.joinById<PongRoom>(roomId);
     const predict = Predict.get(room);
 
     // Other players' inputs aren't ours to predict: interpolate them toward the
@@ -48,6 +159,8 @@ async function main() {
         step: (ctx, predicted, command) => stepEntity(predicted, command, ctx.dt),
     });
 
+    lobbyScreen.element.remove();
+    gameEl.hidden = false;
     statusEl.textContent = `Connected as ${room.sessionId}`;
 
     const nodes = new Map<string, HTMLElement>();
@@ -106,7 +219,35 @@ async function main() {
     requestAnimationFrame(frame);
 }
 
-main().catch((e) => {
-    console.error(e);
-    statusEl.textContent = "Could not connect";
+const lobbyScreen = createLobbyScreen({
+    onCreate: async (config) => {
+        lobbyScreen.setBusy(true);
+        lobbyScreen.clearError();
+        try {
+            await enterLobby(config);
+            lobbyScreen.setBusy(false);
+        } catch (e) {
+            console.error(e);
+            lobbyScreen.setBusy(false);
+            lobbyScreen.showError("Could not create the lobby.");
+        }
+    },
+    onJoinWithCode: async (code) => {
+        lobbyScreen.setBusy(true);
+        lobbyScreen.clearError();
+        try {
+            await joinLobbyByCode(code);
+            lobbyScreen.setBusy(false);
+        } catch (e) {
+            console.error(e);
+            lobbyScreen.setBusy(false);
+            lobbyScreen.showError(e instanceof Error && e.message.startsWith("That join code")
+                ? e.message
+                : "Could not join that lobby.");
+        }
+    },
 });
+
+document.body.prepend(lobbyScreen.element);
+gameEl.hidden = true;
+statusEl.textContent = "Create a lobby to start.";

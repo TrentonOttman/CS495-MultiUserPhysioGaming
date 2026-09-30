@@ -70,36 +70,127 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
     const element = document.createElement("section");
     element.id = "lobby";
     element.innerHTML = `
-        <h2>Create a lobby</h2>
-        <form id="create-form">
-            <label>Lobby name <input id="lobby-name" name="name" maxlength="40" placeholder="Friday Group" autocomplete="off" /></label>
-            <label>Game <select id="lobby-game" name="gameId">${options}</select></label>
-            <label>Max players
-                <select id="lobby-max" name="maxPlayers">${playerOptions}</select>
-            </label>
-            <fieldset>
-                <legend>Visibility</legend>
-                <label><input type="radio" name="isPrivate" value="false" checked /> Public — listed in the room browser</label>
-                <label><input type="radio" name="isPrivate" value="true" /> Private — join by code only</label>
-            </fieldset>
-            <button type="submit">Create lobby</button>
-        </form>
-
-        <div id="lobby-waiting" hidden>
-            <h2 id="waiting-name">Lobby</h2>
-            <p id="waiting-summary"></p>
-            <p>Join code: <strong id="waiting-code"></strong></p>
-            <p id="waiting-role"></p>
-            <button id="lobby-start" hidden>Start game</button>
+        <div class="lobby-header">
+            <h2>Play</h2>
+            <p>Create a new lobby or join an existing one.</p>
         </div>
 
-        <form id="join-form">
-            <h2>Join with a code</h2>
-            <label>Join code
-                <input name="joinCode" id="join-code" maxlength="6" placeholder="ABC123" autocomplete="off" autocapitalize="characters" spellcheck="false" />
-            </label>
-            <button type="submit">Join</button>
-        </form>
+        <div id="lobby-menu">
+            <form id="create-form" class="lobby-card">
+                <div class="card-header">
+                    <h3>Create Lobby</h3>
+                    <p>Start a new game for your group.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="lobby-name">Lobby name</label>
+                    <input
+                        id="lobby-name"
+                        name="name"
+                        maxlength="40"
+                        placeholder="Friday Group"
+                        autocomplete="off"
+                    />
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="lobby-game">Game</label>
+                        <select id="lobby-game" name="gameId">
+                            ${options}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="lobby-max">Max players</label>
+                        <select id="lobby-max" name="maxPlayers">
+                            ${playerOptions}
+                        </select>
+                    </div>
+                </div>
+
+                <fieldset class="visibility-options">
+                    <legend>Visibility</legend>
+
+                    <label class="radio-option">
+                        <input
+                            type="radio"
+                            name="isPrivate"
+                            value="false"
+                            checked
+                        />
+                        <span>
+                            <strong>Public</strong>
+                            <small>Anyone can discover and join this lobby.</small>
+                        </span>
+                    </label>
+
+                    <label class="radio-option">
+                        <input
+                            type="radio"
+                            name="isPrivate"
+                            value="true"
+                        />
+                        <span>
+                            <strong>Private</strong>
+                            <small>Players need a join code.</small>
+                        </span>
+                    </label>
+                </fieldset>
+
+                <button type="submit" class="primary-button">
+                    Create Lobby
+                </button>
+            </form>
+
+            <form id="join-form" class="lobby-card join-card">
+                <div class="card-header">
+                    <h3>Join Lobby</h3>
+                    <p>Enter a code shared by the lobby host.</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="join-code">Join code</label>
+                    <input
+                        name="joinCode"
+                        id="join-code"
+                        maxlength="6"
+                        placeholder="ABC123"
+                        autocomplete="off"
+                        autocapitalize="characters"
+                        spellcheck="false"
+                    />
+                </div>
+
+                <button type="submit" class="secondary-button">
+                    Join Lobby
+                </button>
+            </form>
+        </div>
+
+        <div id="lobby-waiting" class="lobby-card waiting-room" hidden>
+            <div class="waiting-header">
+                <div>
+                    <span class="eyebrow">LOBBY</span>
+                    <h2 id="waiting-name">Lobby</h2>
+                </div>
+
+                <span class="status-badge">Waiting</span>
+            </div>
+
+            <p id="waiting-summary" class="waiting-summary"></p>
+
+            <div class="join-code-container">
+                <span>JOIN CODE</span>
+                <strong id="waiting-code"></strong>
+            </div>
+
+            <p id="waiting-role"></p>
+
+            <button id="lobby-start" class="primary-button" hidden>
+                Start Game
+            </button>
+        </div>
 
         <p id="lobby-error" role="alert" hidden></p>
     `;

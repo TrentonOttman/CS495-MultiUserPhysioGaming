@@ -21,5 +21,7 @@
 
 - Taking Heavy Inspiration from Pico Park
 - Puzzle design, but also has relatively visible characters and scales with different player counts
-- 
+
+- Briefly discussed whether we wanted to figure out a game engine and then build a game to suit that or vice verse; We went with the latter option
+- Because we chose to do a 2-D puzzle co-op like Pico Park, the main framework to look into is Phaser
   

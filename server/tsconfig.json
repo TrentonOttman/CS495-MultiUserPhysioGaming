@@ -17,7 +17,9 @@
         "allowImportingTsExtensions": true,
         "verbatimModuleSyntax": false,
         "experimentalDecorators": true,
-        "useDefineForClassFields": false
+        "useDefineForClassFields": false,
+        "allowJs": true,
+        "checkJs": false
     },
     "include": [
         "src",

@@ -88,7 +88,7 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
                         id="lobby-name"
                         name="name"
                         maxlength="40"
-                        placeholder="Friday Group"
+                        placeholder="My Group"
                         autocomplete="off"
                     />
                 </div>

@@ -17,7 +17,7 @@
 | KAPLAY (formerly Kaboom) | JavaScript / TypeScript | Free (open source, MIT) | Good: plain JS, but no official Colyseus guide | Low | Backup option |
 | Defold | Lua | Free (open source) | Fair: official Colyseus SDK with HTML5 support, but a different language from our stack | Moderate | Viable, but behind Phaser |
 | Godot | GDScript (or C#) | Free (open source) | Weak: separate language, experimental Colyseus SDK | Moderate–High | Not recommended |
-| Unity | C# | Free tier (check current license terms) | Weak: heavy web builds, separate language | High | Not recommended/ Dr. Crawford warned us against it |
+| Unity | C# | Free tier | Weak: heavy web builds, separate language | High | Not recommended/ Dr. Crawford warned us against it |
 | Custom engine (raw WebGL) | JavaScript / TypeScript | Free | Good language fit, but everything built from scratch | Very high | Not recommended |
 
 **Recommendation:** Phaser, with KAPLAY as a fallback if the team finds Phaser too heavy during setup.
@@ -29,7 +29,7 @@
 - The project continues the previous PhysioGaming work: a **web** multiplayer game using **Colyseus** for networking, with EMG sensors as input.
 - **Game idea (decided):** a 2-D co-op puzzle platformer in the style of *Pico Park*, where players must cooperate (e.g., stacking on each other, pressing switches together) to clear each level. A 2-D wave-survival RPG with class abilities was also considered but not chosen.
 
-  - **Implication:** the JS pipeline fits a web/Colyseus game directly: each player's browser reads their own sensor and sends their input to the Colyseus server. A JavaScript engine (Phaser) can use this data with no bridge; Defold and Godot web builds would need a JavaScript bridge.
+
   - **Design implication:** the JS pipeline gives a continuous value, so the game can use a simple on/off threshold *or* flex strength (e.g., harder clench = more thrust or a stronger attack).
   - **Bluetooth implications:** Web Bluetooth generally works in Chrome and Edge but not Firefox or Safari, and only on secure pages (HTTPS or localhost), so the hosted game will need HTTPS.
 

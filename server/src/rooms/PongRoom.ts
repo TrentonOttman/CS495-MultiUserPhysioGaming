@@ -1,4 +1,5 @@
-import { Room, Client, CloseCode, type StepContext } from "colyseus";
+import { Client, CloseCode, type StepContext } from "colyseus";
+import { LobbyCapableRoom } from "./base/LobbyCapableRoom.js";
 import { PongState, Player, MoveInput, Vec2, Ball } from "./schema/PongState.js";
 import { TICK_RATE, ARENA_WIDTH, ARENA_HEIGHT, BALL_SPEED } from "../shared/pongConstants.js";
 import { stepPlayer, stepBall, checkIfScored } from "../shared/pongMovement.js";
@@ -13,13 +14,12 @@ const ballNorm: Vec2 = new Vec2({
     y: 1,
 }).norm();
 
-export class PongRoom extends Room<{ state: PongState, input: MoveInput }> {
-    maxClients = 2;
+export class PongRoom extends LobbyCapableRoom<PongState, MoveInput> {
     state = new PongState();
 
     private leftPaddle: string | null = null;
     private rightPaddle: string | null = null;
-    
+
     /**
      * Per-client input buffer. `sanitize` clamps every field as it is decoded —
      * never trust the wire — and the buffer holds ~2s of inputs at this tick rate
@@ -35,7 +35,12 @@ export class PongRoom extends Room<{ state: PongState, input: MoveInput }> {
         // only for things that are not inputs (chat, emotes, …).
     };
 
-    onCreate(options: any) {
+    /**
+     * Runs after `LobbyCapableRoom` has validated the lobby configuration and
+     * applied it to this room, so capacity and visibility are already correct
+     * by the time the simulation is installed.
+     */
+    protected async onLobbyCreate(): Promise<void> {
         this.setFixedTimestep((ctx) => this.step(ctx), TICK_RATE);
 
         this.state.ball = new Ball({

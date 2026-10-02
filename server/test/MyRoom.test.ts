@@ -1,15 +1,15 @@
 import assert from "assert";
-import { ColyseusTestServer, boot } from "@colyseus/testing";
+import type { ColyseusTestServer } from "@colyseus/testing";
 
-import appConfig from "../src/app.config.js";
+import type appConfig from "../src/app.config.js";
+import { getTestServer } from "./harness.js";
 import { MyRoomState, type MoveInput } from "../src/rooms/schema/MyRoomState.js";
 import { PLAYER_SPEED, TICK_RATE } from "../src/shared/constants.js";
 
 describe("testing your Colyseus app", () => {
     let colyseus: ColyseusTestServer<typeof appConfig>;
 
-    before(async () => colyseus = await boot(appConfig));
-    after(async () => colyseus.shutdown());
+    before(async () => { colyseus = await getTestServer(); });
 
     beforeEach(async () => {
         await colyseus.cleanup();

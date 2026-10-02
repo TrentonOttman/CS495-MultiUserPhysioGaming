@@ -1,4 +1,4 @@
-import { isGameId, type GameId } from "./games.js";
+import { isGameId, GAME_REGISTRY, type GameId } from "./games.js";
 
 /**
  * The physiological-input games target 2–12 simultaneous players, which is what
@@ -98,11 +98,13 @@ export function validateLobbyConfig(raw: unknown): LobbyConfigResult {
     if (typeof input.maxPlayers !== "number" || !Number.isInteger(input.maxPlayers)) {
         return { ok: false, field: "maxPlayers", error: "Maximum players must be a whole number." };
     }
-    if (input.maxPlayers < MIN_PLAYERS || input.maxPlayers > MAX_PLAYERS) {
-        return {
-            ok: false,
-            field: "maxPlayers",
-            error: `Maximum players must be between ${MIN_PLAYERS} and ${MAX_PLAYERS}.`,
+
+    const game = GAME_REGISTRY[input.gameId];
+
+    if (input.maxPlayers < game.minPlayers || input.maxPlayers > game.maxPlayers) {
+        return { ok: false, field: "maxPlayers", error: game.minPlayers === game.maxPlayers
+                ? `${game.label} requires exactly ${game.minPlayers} players.`
+                : `${game.label} supports ${game.minPlayers}-${game.maxPlayers} players.`,
         };
     }
 

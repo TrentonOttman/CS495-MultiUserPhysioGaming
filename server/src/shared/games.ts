@@ -7,7 +7,7 @@
  * `src/app.config.ts`; the lobby passes it to `matchMaker.createRoom()`.
  */
 export const GAME_REGISTRY = {
-    pong: { roomName: "pong_room", label: "Pong" },
+    pong: { roomName: "pong_room", label: "Pong", minPlayers: 2, maxPlayers: 2 },
 } as const;
 
 export type GameId = keyof typeof GAME_REGISTRY;

@@ -13,7 +13,7 @@ import {
  */
 import { MyRoom } from "./rooms/MyRoom.js";
 import { PongRoom } from "./rooms/PongRoom.js";
-import { resolveJoinCode } from "./rooms/joinCodeIndex.js";
+import { resolveJoinCode } from "./client/matchmaking/joinCodeIndex.js";
 // Aliased: `LobbyRoom` above is Colyseus's built-in room browser. This is ours.
 import { LobbyRoom as SessionLobby } from "./rooms/LobbyRoom.js";
 

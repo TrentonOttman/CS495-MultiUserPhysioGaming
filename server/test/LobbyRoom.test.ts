@@ -8,7 +8,7 @@ import type { LobbyRoom } from "../src/rooms/LobbyRoom.js";
 import type { PongRoom } from "../src/rooms/PongRoom.js";
 import { MIN_PLAYERS, MAX_PLAYERS, validateLobbyConfig } from "../src/shared/lobbyConfig.js";
 import { getGameRoomName } from "../src/shared/games.js";
-import { resolveJoinCode } from "../src/rooms/joinCodeIndex.js";
+import { resolveJoinCode } from "../src/client/matchmaking/joinCodeIndex.js";
 
 /**
  * Covers the lobby-configuration PBI: creating a lobby, naming it, choosing a

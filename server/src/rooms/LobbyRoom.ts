@@ -5,7 +5,7 @@ import {
     generateUniqueJoinCode,
     isRoomJoinCode,
     releaseJoinCode,
-} from "./joinCodeIndex.js";
+} from "../client/matchmaking/joinCodeIndex.js";
 import { getGameRoomName } from "../shared/games.js";
 import {
     DEFAULT_LOBBY_CONFIG,

@@ -1,11 +1,11 @@
 import { Room, ServerError, ErrorCode } from "colyseus";
-import type { LobbyState } from "./schema/LobbyState.js";
+import type { LobbyState } from "../schema/LobbyState.js";
 import {
     toLobbyMetadata,
     validateLobbyConfig,
     type LobbyConfig,
     type LobbyMetadata,
-} from "../shared/lobbyConfig.js";
+} from "../../shared/lobbyConfig.js";
 
 /**
  * Base class for a game room that a lobby can start.

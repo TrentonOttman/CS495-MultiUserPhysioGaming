@@ -1,11 +1,6 @@
 import { GAME_IDS, GAME_REGISTRY, type GameId } from "../shared/games.js";
 import { normalizeJoinCode } from "../shared/joinCode.js";
-import {
-    MAX_PLAYERS,
-    MIN_PLAYERS,
-    validateLobbyConfig,
-    type LobbyConfig,
-} from "../shared/lobbyConfig.js";
+import {validateLobbyConfig, type LobbyConfig } from "../shared/lobbyConfig.js";
 
 /**
  * The lobby screen: a create form, and — once a lobby exists — the waiting
@@ -61,10 +56,6 @@ export interface LobbyView {
 }
 
 const options = GAME_IDS.map((id) => `<option value="${id}">${GAME_REGISTRY[id].label}</option>`).join("");
-const playerOptions = Array.from(
-    { length: MAX_PLAYERS - MIN_PLAYERS + 1 },
-    (_, i) => `<option value="${i + MIN_PLAYERS}">${i + MIN_PLAYERS}</option>`,
-).join("");
 
 export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen {
     const element = document.createElement("section");
@@ -104,7 +95,6 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
                     <div class="form-group">
                         <label for="lobby-max">Max players</label>
                         <select id="lobby-max" name="maxPlayers">
-                            ${playerOptions}
                         </select>
                     </div>
                 </div>
@@ -200,6 +190,26 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
     const error = element.querySelector<HTMLElement>("#lobby-error")!;
     const startButton = element.querySelector<HTMLButtonElement>("#lobby-start")!;
     const joinForm = element.querySelector<HTMLFormElement>("#join-form")!;
+    const gameSelect = element.querySelector<HTMLSelectElement>("#lobby-game")!;
+    const maxPlayersSelect = element.querySelector<HTMLSelectElement>("#lobby-max")!;
+
+    function updatePlayerOptions() {
+        const gameId = gameSelect.value as GameId;
+        const game = GAME_REGISTRY[gameId];
+
+        maxPlayersSelect.innerHTML = "";
+
+        for (let count = game.minPlayers; count <= game.maxPlayers; count++) {
+            const option = document.createElement("option");
+            option.value = String(count);
+            option.textContent = String(count);
+            maxPlayersSelect.appendChild(option);
+        }
+    }
+
+    gameSelect.addEventListener("change", updatePlayerOptions);
+
+    updatePlayerOptions();
 
     form.addEventListener("submit", (event) => {
         event.preventDefault();

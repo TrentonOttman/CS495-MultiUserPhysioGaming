@@ -1,5 +1,5 @@
 import { Client, CloseCode, type StepContext } from "colyseus";
-import { LobbyCapableRoom } from "./LobbyCapableRoom.js";
+import { LobbyCapableRoom } from "./base/LobbyCapableRoom.js";
 import { PongState, Player, MoveInput, Vec2, Ball } from "./schema/PongState.js";
 import { TICK_RATE, ARENA_WIDTH, ARENA_HEIGHT, BALL_SPEED } from "../shared/pongConstants.js";
 import { stepPlayer, stepBall, checkIfScored } from "../shared/pongMovement.js";

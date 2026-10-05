@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="icon" href="data:," />
-    <title>Iteration 1: Pong</title>
+    <title>PhysioGaming</title>
     <style>
         body {
             font: 16px/1.5 system-ui, sans-serif;
@@ -18,14 +18,266 @@
             font-weight: 600;
         }
 
-        #arena {
-            position: relative;
-            width: 800px;
-            height: 600px;
-            max-width: 100%;
-            background: #1114;
+        #lobby {
+            width: 100%;
+            max-width: 850px;
+            margin: 0 auto 2rem;
+        }
+
+        .lobby-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .lobby-header h2 {
+            margin: 0;
+            font-size: 1.75rem;
+        }
+
+        .lobby-header p {
+            margin: .25rem 0 0;
+            opacity: .65;
+        }
+
+        #lobby-menu {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr;
+            gap: 1rem;
+            align-items: start;
+        }
+
+        .lobby-card {
+            border: 1px solid #8884;
+            border-radius: .75rem;
+            padding: 1.5rem;
+            background: #8881;
+        }
+
+        .card-header {
+            margin-bottom: 1.25rem;
+        }
+
+        .card-header h3 {
+            margin: 0;
+            font-size: 1.15rem;
+        }
+
+        .card-header p {
+            margin: .25rem 0 0;
+            font-size: .9rem;
+            opacity: .65;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: .35rem;
+            margin-bottom: 1rem;
+        }
+
+        .form-group label,
+        .visibility-options legend {
+            font-size: .85rem;
+            font-weight: 600;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: .75rem;
+        }
+
+        #lobby input,
+        #lobby select {
+            box-sizing: border-box;
+            width: 100%;
+            font: inherit;
+            padding: .65rem .75rem;
+
+            border: 1px solid #8886;
+            border-radius: .4rem;
+
+            background: transparent;
+            color: inherit;
+        }
+
+        #lobby input:focus,
+        #lobby select:focus {
+            outline: 2px solid #4ea1ff;
+            outline-offset: 1px;
+        }
+
+        .visibility-options {
+            display: flex;
+            flex-direction: column;
+            gap: .5rem;
+
+            border: 0;
+            padding: 0;
+            margin: 0 0 1.25rem;
+        }
+
+        .visibility-options legend {
+            margin-bottom: .4rem;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: flex-start;
+            gap: .65rem;
+
+            border: 1px solid #8884;
             border-radius: .5rem;
-            overflow: hidden;
+            padding: .75rem;
+
+            cursor: pointer;
+        }
+
+        .radio-option:hover {
+            background: #8881;
+        }
+
+        .radio-option input {
+            width: auto !important;
+            margin-top: .25rem;
+        }
+
+        .radio-option span {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .radio-option small {
+            opacity: .6;
+            margin-top: .1rem;
+        }
+
+        .primary-button,
+        .secondary-button {
+            width: 100%;
+            font: inherit;
+            font-weight: 600;
+
+            padding: .7rem 1rem;
+
+            border-radius: .45rem;
+            cursor: pointer;
+        }
+
+        .primary-button {
+            border: 1px solid #4ea1ff;
+            background: #4ea1ff;
+            color: #111;
+        }
+
+        .secondary-button {
+            border: 1px solid #8886;
+            background: transparent;
+            color: inherit;
+        }
+
+        .primary-button:hover,
+        .secondary-button:hover {
+            filter: brightness(1.1);
+        }
+
+        #lobby button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+
+        #join-code {
+            text-transform: uppercase;
+            letter-spacing: .15em;
+            font-weight: 700;
+        }
+
+        /* Waiting room */
+
+        .waiting-room {
+            max-width: 32rem;
+            margin: 0 auto;
+        }
+
+        .waiting-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .waiting-header h2 {
+            margin: .15rem 0 0;
+        }
+
+        .eyebrow {
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            opacity: .55;
+        }
+
+        .status-badge {
+            font-size: .8rem;
+            font-weight: 600;
+
+            padding: .25rem .6rem;
+            border: 1px solid #8885;
+            border-radius: 999px;
+        }
+
+        .waiting-summary {
+            opacity: .7;
+        }
+
+        .join-code-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+
+            margin: 1.5rem 0;
+            padding: 1rem;
+
+            border: 1px dashed #8887;
+            border-radius: .6rem;
+        }
+
+        .join-code-container span {
+            font-size: .7rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            opacity: .55;
+        }
+
+        #waiting-code {
+            margin-top: .25rem;
+
+            font-size: 1.8rem;
+            letter-spacing: .15em;
+        }
+
+        #lobby-error {
+            margin-top: 1rem;
+            padding: .75rem 1rem;
+
+            border: 1px solid #b00020;
+            border-radius: .5rem;
+
+            color: #d94b62;
+            font-weight: 600;
+        }
+
+        #lobby [hidden] {
+            display: none;
+        }
+
+        @media (max-width: 700px) {
+            #lobby-menu {
+                grid-template-columns: 1fr;
+            }
+
+            .form-row {
+                grid-template-columns: 1fr;
+            }
         }
 
         .player {
@@ -46,6 +298,18 @@
             will-change: transform;
         }
 
+        #arena {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            max-width: 100%;
+            margin: 1rem auto;
+            border: 2px solid #8886;
+            background: #1114;
+            border-radius: .5rem;
+            overflow: hidden;
+        }
+
         .player.self {
             background: #ffd24e;
         }
@@ -53,14 +317,28 @@
 </head>
 
 <body>
-    <h1>Iteration 1: Pong</h1>
-    <p id="status">Connecting…</p>
-    <div>
-        <h1 style="text-align: center;" id="score">0 | 0</h1>
-    </div>
-    <div id="arena"></div>
-    <p>Move with <kbd>WS</kbd> or the arrow keys. Open a second tab to see another player and start the game.</p>
-    <!--<p><a href="/playground">Playground</a> · <a href="/monitor">Monitor</a></p>-->
+    <header>
+        <h1>PhysioGaming</h1>
+    </header>
+
+    <main id="app">
+        <p id="status">Loading…</p>
+
+        <section id="game" hidden>
+            <h2 id="game-title">Pong</h2>
+
+            <div>
+                <h2 style="text-align: center;" id="score">0 | 0</h2>
+            </div>
+
+            <div id="arena"></div>
+
+            <p>
+                Move with <kbd>WS</kbd> or the arrow keys.
+            </p>
+        </section>
+    </main>
+
     <script type="module" src="/src/client/index.ts"></script>
 </body>
 

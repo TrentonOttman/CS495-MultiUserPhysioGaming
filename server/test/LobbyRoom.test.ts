@@ -7,7 +7,7 @@ import { getTestServer } from "./harness.js";
 import type { LobbyRoom } from "../src/rooms/LobbyRoom.js";
 import type { PongRoom } from "../src/rooms/PongRoom.js";
 import { MIN_PLAYERS, MAX_PLAYERS, validateLobbyConfig } from "../src/shared/lobbyConfig.js";
-import { getGameRoomName } from "../src/shared/games.js";
+import { GAME_REGISTRY, getGameRoomName } from "../src/shared/games.js";
 import { resolveJoinCode } from "../src/client/matchmaking/joinCodeIndex.js";
 import type { PublicLobbySummary } from "../src/rooms/publicLobbyListing.js";
 
@@ -36,9 +36,21 @@ describe("session_lobby", () => {
         return { room, client };
     }
 
+    /**
+     * Pong's rules, read from the registry rather than restated here.
+     *
+     * `MIN_PLAYERS`/`MAX_PLAYERS` in `shared/lobbyConfig.ts` are only the shared
+     * envelope; `validateLobbyConfig` bounds a lobby by the *game's* own range,
+     * which is narrower. These fixtures used to hardcode `maxPlayers: 6`, a size
+     * Pong does not allow, so every `configure` built on it was rejected and a
+     * dozen tests failed — or, worse, passed for the wrong reason. Any size that
+     * depends on the game has to be read from the game.
+     */
+    const pongRule = GAME_REGISTRY.pong;
+
     const validConfig = {
         name: "Friday Group",
-        maxPlayers: 6,
+        maxPlayers: pongRule.minPlayers,
         isPrivate: false,
     };
 
@@ -65,8 +77,10 @@ describe("session_lobby", () => {
     });
 
     describe("configuring a lobby", () => {
-        it("accepts the minimum and maximum sizes", async () => {
-            for (const maxPlayers of [MIN_PLAYERS, MAX_PLAYERS]) {
+        it("accepts a size the game allows", async () => {
+            // One size when the game fixes its player count, two when it accepts
+            // a range — derived from the registry, so a second game needs no edit.
+            for (const maxPlayers of new Set([pongRule.minPlayers, pongRule.maxPlayers])) {
                 // A distinct name per iteration: public lobbies may not share one.
                 const { room, client } = await createLobby();
                 client.send("configure", { ...validConfig, name: `Size ${maxPlayers}`, maxPlayers });
@@ -89,14 +103,29 @@ describe("session_lobby", () => {
             assert.strictEqual(room.metadata.isPrivate, true);
         });
 
-        it("rejects sizes outside 2..12", async () => {
-            for (const maxPlayers of [1, 13, 0, -3]) {
+        it("rejects a size the game does not allow", async () => {
+            // `MAX_PLAYERS` is in this list on purpose: the shared envelope is not
+            // automatically a size this game accepts.
+            const rejected = [
+                pongRule.minPlayers - 1,
+                pongRule.maxPlayers + 1,
+                MAX_PLAYERS,
+                0,
+                -3,
+            ];
+
+            for (const maxPlayers of new Set(rejected)) {
                 const { room, client } = await createLobby();
                 client.send("configure", { ...validConfig, maxPlayers });
                 const payload = await client.waitForMessage("error");
 
-                assert.match(payload.error, /between 2 and 12/);
-                assert.strictEqual(room.state.maxPlayers, MIN_PLAYERS, "the rejected value is not applied");
+                // The refusal cites the game's own rule, not the shared envelope.
+                assert.match(payload.error, new RegExp(pongRule.label));
+                assert.strictEqual(
+                    room.state.maxPlayers,
+                    MIN_PLAYERS,
+                    "the rejected value is not applied",
+                );
             }
         });
 
@@ -206,8 +235,9 @@ describe("session_lobby", () => {
 
     describe("starting the game", () => {
         it("creates the game room with the configured lobby", async () => {
+            const size = pongRule.maxPlayers;
             const { room, client } = await createLobby();
-            client.send("configure", { ...validConfig, maxPlayers: 4 });
+            client.send("configure", { ...validConfig, maxPlayers: size });
             await room.waitForNextPatch();
 
             client.send("start");
@@ -215,12 +245,12 @@ describe("session_lobby", () => {
 
             const game = colyseus.getRoomById<PongRoom>(ready.roomId);
             assert.ok(game, "the game room exists");
-            assert.strictEqual(game.maxClients, 4, "the game room honours the lobby size");
+            assert.strictEqual(game.maxClients, size, "the game room honours the lobby size");
 
             // Assert the replicated state, not just the listing: the SDK room
             // exposes no metadata, so state is the only way a client can see
             // the configuration it was started with.
-            assert.strictEqual(game.state.maxPlayers, 4);
+            assert.strictEqual(game.state.maxPlayers, size);
             assert.strictEqual(game.state.lobbyName, validConfig.name);
             assert.strictEqual(game.state.isPrivate, false);
             assert.strictEqual(game.state.gameId, "pong");
@@ -228,7 +258,7 @@ describe("session_lobby", () => {
             assert.strictEqual(game.state.joinCode, room.state.joinCode, "the join code carries into the game");
 
             // And the listing, which is what the room browser reads.
-            assert.strictEqual(game.metadata.maxPlayers, 4);
+            assert.strictEqual(game.metadata.maxPlayers, size);
             assert.strictEqual(game.metadata.lobbyName, validConfig.name);
         });
 

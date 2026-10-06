@@ -9,14 +9,16 @@ import type { PongRoom } from "../src/rooms/PongRoom.js";
 import { MIN_PLAYERS, MAX_PLAYERS, validateLobbyConfig } from "../src/shared/lobbyConfig.js";
 import { getGameRoomName } from "../src/shared/games.js";
 import { resolveJoinCode } from "../src/client/matchmaking/joinCodeIndex.js";
+import type { PublicLobbySummary } from "../src/rooms/publicLobbyListing.js";
 
 /**
  * Covers the lobby-configuration PBI: creating a lobby, naming it, choosing a
  * size and visibility, the room that gets created, host identity, and the
  * rejection of invalid configurations.
  *
- * Joining by code, public discovery and host transfer belong to later PBIs and
- * are deliberately not asserted here.
+ * Also covers public discovery — the listing the public lobby browser polls —
+ * and the join-code paths. Host transfer is still not asserted; it belongs to a
+ * later PBI.
  */
 describe("session_lobby", () => {
     let colyseus: ColyseusTestServer<typeof appConfig>;
@@ -362,6 +364,173 @@ describe("session_lobby", () => {
             for (const bad of badValues) {
                 assert.strictEqual(validateLobbyConfig(bad).ok, false);
             }
+        });
+    });
+
+    /**
+     * The endpoint the public lobby browser polls.
+     *
+     * `maxPlayers` is 2 here because that is all `GAME_REGISTRY.pong` accepts.
+     * The module-level `validConfig` asks for 6, which the registry rejects, so
+     * a lobby configured from it is never configured at all — these tests need a
+     * lobby that really is configured, so they do not borrow it.
+     */
+    describe("the public lobby listing", () => {
+        const publicConfig = { name: "Open Session", maxPlayers: 2, isPrivate: false };
+
+        /** Reads the listing the browser renders. */
+        async function fetchLobbies(): Promise<PublicLobbySummary[]> {
+            const response = await colyseus.http.get<{ lobbies: PublicLobbySummary[] }>("/api/lobby/public");
+            // An empty listing is an ordinary answer, not a fault.
+            assert.strictEqual(response.statusCode, 200);
+            return response.data.lobbies;
+        }
+
+        /**
+         * The listing is written as sockets close and `setMatchmaking` settles,
+         * both of which can land after the message that caused them, so these
+         * assertions wait for the state they are about rather than racing it.
+         * The last listing is returned so a timeout still fails on a diff.
+         */
+        async function waitForLobbies(match: (lobbies: PublicLobbySummary[]) => boolean) {
+            let lobbies = await fetchLobbies();
+
+            for (let attempt = 0; attempt < 40 && !match(lobbies); attempt++) {
+                await new Promise((resolve) => setTimeout(resolve, 50));
+                lobbies = await fetchLobbies();
+            }
+
+            return lobbies;
+        }
+
+        it("describes a public lobby from the room listing", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", { ...publicConfig, name: "Physio Party" });
+
+            const lobbies = await waitForLobbies((all) => all.some((l) => l.roomId === room.roomId));
+            const found = lobbies.find((l) => l.roomId === room.roomId);
+
+            assert.ok(found, "the lobby is offered to the browser");
+            assert.strictEqual(found!.lobbyName, "Physio Party");
+            assert.strictEqual(found!.gameId, "pong");
+            assert.strictEqual(found!.clients, 1, "the host is counted by the server");
+            assert.strictEqual(found!.maxClients, 2, "capacity comes from the listing, not the metadata");
+        });
+
+        it("omits a private lobby", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", { ...publicConfig, name: "Hidden", isPrivate: true });
+            await room.waitForNextPatch();
+
+            // Visibility has to have reached the listing first, or this would
+            // pass for the wrong reason — the lobby would still be unconfigured,
+            // and an unnamed lobby is omitted too.
+            assert.strictEqual(room.metadata.lobbyName, "Hidden");
+            assert.strictEqual(room.metadata.isPrivate, true);
+
+            // Named and marked private, and still not offered. Waiting is what
+            // makes the assertion mean something: an immediate check would also
+            // pass against a filter that had merely not been applied yet.
+            const lobbies = await waitForLobbies((all) => all.some((l) => l.lobbyName === "Hidden"));
+
+            assert.ok(
+                !lobbies.some((l) => l.lobbyName === "Hidden"),
+                "a private lobby is never fetched, so it cannot be hidden-but-present",
+            );
+        });
+
+        it("omits a lobby that has not been configured yet", async () => {
+            const { room } = await createLobby();
+
+            const lobbies = await fetchLobbies();
+
+            // A lobby is listable the moment it is created, before the host has
+            // named it. Publishing that would show an empty, unjoinable row.
+            assert.ok(
+                !lobbies.some((l) => l.roomId === room.roomId),
+                "an unnamed lobby is not offered",
+            );
+        });
+
+        it("tracks occupancy as players join and leave", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", publicConfig);
+            await waitForLobbies((all) => all.some((l) => l.roomId === room.roomId));
+
+            const guest = await colyseus.connectTo(room);
+            const full = await waitForLobbies(
+                (all) => all.some((l) => l.roomId === room.roomId && l.clients === 2),
+            );
+            const occupied = full.find((l) => l.roomId === room.roomId)!;
+            assert.strictEqual(occupied.clients, 2);
+            assert.strictEqual(
+                occupied.clients >= occupied.maxClients,
+                true,
+                "at capacity, which is what the browser renders as Full",
+            );
+
+            await guest.leave();
+            const emptied = await waitForLobbies(
+                (all) => all.some((l) => l.roomId === room.roomId && l.clients === 1),
+            );
+
+            assert.strictEqual(
+                emptied.find((l) => l.roomId === room.roomId)!.clients,
+                1,
+                "a seat going free is reflected, so Full returns to Join",
+            );
+        });
+
+        it("omits the game room a lobby starts", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", publicConfig);
+            await waitForLobbies((all) => all.some((l) => l.roomId === room.roomId));
+
+            client.send("start");
+            const ready = await client.waitForMessage("gameReady");
+
+            const lobbies = await fetchLobbies();
+
+            assert.ok(colyseus.getRoomById(ready.roomId), "the game room exists");
+            assert.ok(
+                !lobbies.some((l) => l.roomId === ready.roomId),
+                "a match in progress is not a lobby to discover",
+            );
+        });
+
+        it("omits lobbies that have closed", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", publicConfig);
+            await waitForLobbies((all) => all.some((l) => l.roomId === room.roomId));
+
+            await colyseus.cleanup();
+
+            const lobbies = await fetchLobbies();
+            assert.deepStrictEqual(lobbies, [], "a disposed lobby simply stops being listed");
+        });
+
+        it("never exposes a join code", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", { ...publicConfig, name: "Secret Session" });
+            await waitForLobbies((all) => all.some((l) => l.roomId === room.roomId));
+
+            const code = room.state.joinCode;
+            assert.match(code, /^[A-Z2-9]{6}$/, "the lobby really does have a code to leak");
+
+            const lobbies = await fetchLobbies();
+            const found = lobbies.find((l) => l.roomId === room.roomId)!;
+
+            // A code lives in state and never in metadata, so it is not in the
+            // listing this is built from. Asserting the whole field set is what
+            // keeps it that way as the projection grows.
+            assert.deepStrictEqual(
+                Object.keys(found).sort(),
+                ["clients", "gameId", "lobbyName", "locked", "maxClients", "roomId"],
+            );
+            assert.ok(
+                !JSON.stringify(lobbies).includes(code),
+                "no join code appears anywhere in the public listing",
+            );
         });
     });
 });

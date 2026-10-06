@@ -68,9 +68,33 @@ async function joinLobbyByCode(code: string) {
 }
 
 /**
+ * Joins a public lobby the player picked from the lobby browser.
+ *
+ * The room id is the one Colyseus's own listing reported, so this is the same
+ * handle a join code resolves to — no second identifier, and no lookup step.
+ * `joinById` is used for the same reason as everywhere else: a lobby may
+ * legitimately be private, and `join` filters those out of matchmaking.
+ *
+ * A public lobby admits any guest without a code, so unlike the by-code path
+ * there is nothing to present. This lands in the same waiting room as either
+ * other route because it goes through the same `attachToLobby`.
+ *
+ * The rejection is deliberately not translated here. Whether the room filled up
+ * or closed is not something this error can say — Colyseus rejects an unknown
+ * room, a locked room and a full one alike — so the browser re-reads the listing
+ * to find out, and reports it next to the button the player pressed.
+ */
+async function joinLobbyById(roomId: string) {
+    const room = await client.joinById<SessionLobby>(roomId);
+    await attachToLobby(room);
+    statusEl.textContent = `Joined as ${room.sessionId}`;
+}
+
+/**
  * Wires an already-joined lobby room to this client's UI. Shared by the host
- * and by guests joining by code, so both get the same screen and — critically —
- * the same `gameReady` transition when the host starts the game.
+ * and by guests joining by code or from the browser, so all three get the same
+ * screen and — critically — the same `gameReady` transition when the host starts
+ * the game.
  */
 async function attachToLobby(room: Room<SessionLobby, LobbyState>) {
     // `start` is host-only server-side; the button is hidden for guests, and the
@@ -122,6 +146,9 @@ async function attachToLobby(room: Room<SessionLobby, LobbyState>) {
  * Each game module decides HOW that game works.
  */
 async function enterGame(gameId: GameId, roomId: string) {
+    // The section is about to be removed, so stop the browser polling rather
+    // than leaving it re-reading the public lobby list under the game.
+    lobbyScreen.stop();
     lobbyScreen.element.remove();
 
     switch (gameId) {
@@ -161,6 +188,7 @@ const lobbyScreen = createLobbyScreen({
                 : "Could not join that lobby.");
         }
     },
+    onJoinListed: (roomId) => joinLobbyById(roomId),
 });
 
 appEl.prepend(lobbyScreen.element);

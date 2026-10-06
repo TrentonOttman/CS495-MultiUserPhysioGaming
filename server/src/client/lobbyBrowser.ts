@@ -107,8 +107,14 @@ export function createLobbyBrowser(callbacks: LobbyBrowserCallbacks): LobbyBrows
                 <p>Join an open session without a code.</p>
             </div>
 
+            <!-- An SVG rather than a glyph: ↻ is missing from plenty of system
+                 fonts, and this button has to read as a refresh control
+                 everywhere. -->
             <button type="button" id="browser-refresh" class="icon-button" title="Refresh" aria-label="Refresh public lobbies">
-                &#8635;
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <path d="M20 11a8 8 0 1 0-2.3 5.7"></path>
+                    <polyline points="20 4 20 11 13 11"></polyline>
+                </svg>
             </button>
         </div>
 

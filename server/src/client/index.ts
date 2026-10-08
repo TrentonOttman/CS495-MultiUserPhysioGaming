@@ -6,6 +6,7 @@ import { createLobbyScreen } from "./lobby.js";
 import type { LobbyConfig } from "../shared/lobbyConfig.js";
 import type { GameId } from "../shared/games.js";
 import { startPong } from "./games/pong.js";
+import { startPhysioPark } from "./games/physio-park.js";
 
 const statusEl = document.getElementById("status")!;
 const arenaEl = document.getElementById("arena")!;
@@ -127,6 +128,10 @@ async function enterGame(gameId: GameId, roomId: string) {
     switch (gameId) {
         case "pong":
             await startPong(client, roomId, { game: gameEl, arena: arenaEl, score: scoreEl, status: statusEl });
+            break;
+
+        case "physio_park":
+            await startPhysioPark(client, roomId);
             break;
 
         default:

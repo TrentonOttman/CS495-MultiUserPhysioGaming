@@ -86,6 +86,8 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
             <p>Create a new lobby, join a public one, or enter a code.</p>
         </div>
 
+        <p id="lobby-error" role="alert" hidden></p>
+
         <div id="lobby-menu">
             <form id="create-form" class="lobby-card">
                 <div class="card-header">
@@ -206,7 +208,6 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
             </button>
         </div>
 
-        <p id="lobby-error" role="alert" hidden></p>
     `;
 
     const form = element.querySelector<HTMLFormElement>("#create-form")!;
@@ -222,8 +223,16 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
     // arrives without a code, side by side, with the code entry below them.
     const browser = createLobbyBrowser({
         onJoin: (roomId) => callbacks.onJoinListed(roomId),
+        onError: showError,
     });
     joinRow.parentElement!.insertBefore(browser.element, joinRow);
+
+    const matchBrowserHeight = () => {
+        browser.element.style.height = `${form.getBoundingClientRect().height}px`;
+    };
+    matchBrowserHeight();
+    const createFormResizeObserver = new ResizeObserver(matchBrowserHeight);
+    createFormResizeObserver.observe(form);
 
     function updatePlayerOptions() {
         const gameId = gameSelect.value as GameId;
@@ -319,7 +328,16 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
             ? "You are the host."
             : "Waiting for the host to start…";
 
+        const minimum = GAME_REGISTRY[view.gameId as GameId]?.minPlayers ?? 1;
+        const needsMorePlayers = view.memberCount < minimum;
         startButton.hidden = !view.isHost || view.status !== "configuring";
+        startButton.disabled = needsMorePlayers;
+        startButton.textContent = needsMorePlayers
+            ? `Waiting for players (${view.memberCount}/${minimum})`
+            : "Start Game";
+        startButton.title = needsMorePlayers
+            ? `At least ${minimum} players are required to start.`
+            : "";
     }
 
     return {

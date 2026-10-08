@@ -49,6 +49,8 @@ export interface LobbyBrowserCallbacks {
      * rather than guessing why from the error.
      */
     onJoin(roomId: string): void | Promise<void>;
+    /** Displays a failed join in the lobby screen's shared error area. */
+    onError(message: string): void;
 }
 
 export interface LobbyBrowser {
@@ -134,9 +136,6 @@ export function createLobbyBrowser(callbacks: LobbyBrowserCallbacks): LobbyBrows
     let loaded = false;
     let failed = false;
 
-    /** A message about what just happened, which outranks the passive states. */
-    let notice: string | null = null;
-
     /** Room ids with a join in flight, so a row cannot be asked to join twice. */
     const joining = new Set<string>();
 
@@ -167,9 +166,7 @@ export function createLobbyBrowser(callbacks: LobbyBrowserCallbacks): LobbyBrows
      * did outranks the passive states, which outrank showing anything at all.
      */
     function render() {
-        if (notice !== null) {
-            showNote(notice);
-        } else if (!loaded) {
+        if (!loaded) {
             showNote(LOADING_MESSAGE);
         } else if (failed) {
             showNote(FAILED_MESSAGE);
@@ -250,9 +247,24 @@ export function createLobbyBrowser(callbacks: LobbyBrowserCallbacks): LobbyBrows
         return inFlight;
     }
 
-    async function runRefresh(): Promise<void> {
-        notice = null;
+    function refreshFromButton() {
+        const startedAt = performance.now();
+        refreshButton.disabled = true;
+        refreshButton.classList.add("is-refreshing");
+        refreshButton.setAttribute("aria-busy", "true");
+        void (async () => {
+            await refresh();
+            const remaining = 350 - (performance.now() - startedAt);
+            if (remaining > 0) {
+                await new Promise((resolve) => setTimeout(resolve, remaining));
+            }
+            refreshButton.classList.remove("is-refreshing");
+            refreshButton.removeAttribute("aria-busy");
+            refreshButton.disabled = false;
+        })();
+    }
 
+    async function runRefresh(): Promise<void> {
         try {
             latest = await loadPublicLobbies();
             failed = false;
@@ -291,14 +303,14 @@ export function createLobbyBrowser(callbacks: LobbyBrowserCallbacks): LobbyBrows
             await refresh();
 
             const current = failed ? undefined : latest.find((other) => other.roomId === lobby.roomId);
-            notice = current !== undefined && isFull(current) ? FULL_MESSAGE : GONE_MESSAGE;
+            callbacks.onError(current !== undefined && isFull(current) ? FULL_MESSAGE : GONE_MESSAGE);
         } finally {
             joining.delete(lobby.roomId);
             render();
         }
     }
 
-    refreshButton.addEventListener("click", () => { void refresh(); });
+    refreshButton.addEventListener("click", refreshFromButton);
 
     // Painted before the first request is sent so the panel opens in its
     // loading state rather than as an empty card. `render` is synchronous, so

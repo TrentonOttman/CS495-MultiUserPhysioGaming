@@ -13,10 +13,10 @@ import {
  */
 import { MyRoom } from "./rooms/MyRoom.js";
 import { PongRoom } from "./rooms/PongRoom.js";
-import { resolveJoinCode } from "./client/matchmaking/joinCodeIndex.js";
+import { resolveJoinCode } from "./lobby/joinCodeIndex.js";
 // Aliased: `LobbyRoom` above is Colyseus's built-in room browser. This is ours.
 import { LobbyRoom as SessionLobby } from "./rooms/LobbyRoom.js";
-import { listPublicLobbies } from "./rooms/publicLobbyListing.js";
+import { listPublicLobbies } from "./lobby/publicLobbyListing.js";
 
 const server = defineServer({
 

@@ -8,8 +8,8 @@ import type { LobbyRoom } from "../src/rooms/LobbyRoom.js";
 import type { PongRoom } from "../src/rooms/PongRoom.js";
 import { MIN_PLAYERS, MAX_PLAYERS, validateLobbyConfig } from "../src/shared/lobbyConfig.js";
 import { GAME_REGISTRY, getGameRoomName } from "../src/shared/games.js";
-import { resolveJoinCode } from "../src/client/matchmaking/joinCodeIndex.js";
-import type { PublicLobbySummary } from "../src/rooms/publicLobbyListing.js";
+import { resolveJoinCode } from "../src/lobby/joinCodeIndex.js";
+import type { PublicLobbySummary } from "../src/lobby/publicLobbyListing.js";
 
 /**
  * Covers the lobby-configuration PBI: creating a lobby, naming it, choosing a
@@ -239,6 +239,7 @@ describe("session_lobby", () => {
             const { room, client } = await createLobby();
             client.send("configure", { ...validConfig, maxPlayers: size });
             await room.waitForNextPatch();
+            await colyseus.connectTo(room);
 
             client.send("start");
             const ready = await client.waitForMessage("gameReady");
@@ -263,8 +264,11 @@ describe("session_lobby", () => {
         });
 
         it("starts the room named by the registry", async () => {
-            const { client } = await createLobby();
+            const { room, client } = await createLobby();
             client.send("configure", validConfig);
+            await room.waitForNextPatch();
+            await colyseus.connectTo(room);
+
             client.send("start");
             const ready = await client.waitForMessage("gameReady");
 
@@ -292,9 +296,24 @@ describe("session_lobby", () => {
             assert.match(payload.error, /name/);
         });
 
+        it("refuses to start before the game minimum is met", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", validConfig);
+            await room.waitForNextPatch();
+
+            client.send("start");
+            const payload = await client.waitForMessage("error");
+
+            assert.match(payload.error, new RegExp(`at least ${pongRule.minPlayers} players`, "i"));
+            assert.strictEqual(room.state.status, "configuring", "the game did not start");
+        });
+
         it("ignores a second start", async () => {
             const { room, client } = await createLobby();
             client.send("configure", validConfig);
+            await room.waitForNextPatch();
+            await colyseus.connectTo(room);
+
             client.send("start");
             await client.waitForMessage("gameReady");
 
@@ -374,6 +393,7 @@ describe("session_lobby", () => {
             client.send("configure", { ...validConfig, isPrivate: true });
             await room.waitForNextPatch();
             const code = room.state.joinCode;
+            await colyseus.connectTo(room, { joinCode: code });
 
             client.send("start");
             const ready = await client.waitForMessage("gameReady");
@@ -515,6 +535,7 @@ describe("session_lobby", () => {
             const { room, client } = await createLobby();
             client.send("configure", publicConfig);
             await waitForLobbies((all) => all.some((l) => l.roomId === room.roomId));
+            await colyseus.connectTo(room);
 
             client.send("start");
             const ready = await client.waitForMessage("gameReady");

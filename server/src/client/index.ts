@@ -26,16 +26,9 @@ const client = new ColyseusSDK<typeof server>(
  * out of matchmaking and a lobby may legitimately be private.
  */
 async function enterLobby(config: LobbyConfig) {
-    const room = await client.create("session_lobby", { gameId: config.gameId });
-
-    // The creator is the host by construction: Colyseus reserves the creating
-    // client's seat in the same request that ran the room's onCreate, so this
-    // client is the first to arrive and the server has already marked it host.
-    room.send("configure", {
-        name: config.name,
-        maxPlayers: config.maxPlayers,
-        isPrivate: config.isPrivate,
-    });
+    // Include configuration in the create request so the server can reject a
+    // duplicate public name before it allocates a lobby room.
+    const room = await client.create("session_lobby", config);
 
     await attachToLobby(room);
     statusEl.textContent = `Hosting as ${room.sessionId}`;
@@ -97,6 +90,8 @@ async function joinLobbyById(roomId: string) {
  * the game.
  */
 async function attachToLobby(room: Room<SessionLobby, LobbyState>) {
+    lobbyScreen.clearError();
+
     // `start` is host-only server-side; the button is hidden for guests, and the
     // room refuses it regardless, so this is safe to leave wired for everyone.
     lobbyScreen.onStart = () => room.send("start");
@@ -171,7 +166,10 @@ const lobbyScreen = createLobbyScreen({
         } catch (e) {
             console.error(e);
             lobbyScreen.setBusy(false);
-            lobbyScreen.showError("Could not create the lobby.");
+            const message = e instanceof Error ? e.message : "";
+            lobbyScreen.showError(message.includes("Another public lobby already uses that name.")
+                ? "Another public lobby already uses that name."
+                : "Could not create the lobby.");
         }
     },
     onJoinWithCode: async (code) => {

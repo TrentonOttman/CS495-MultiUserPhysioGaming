@@ -42,7 +42,7 @@
             display: grid;
             grid-template-columns: 1.4fr 1fr;
             gap: 1rem;
-            align-items: start;
+            align-items: stretch;
         }
 
         .lobby-card {
@@ -230,6 +230,14 @@
 
         /* Public lobby browser */
 
+        .browser-card {
+            box-sizing: border-box;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
         .browser-header {
             display: flex;
             justify-content: space-between;
@@ -260,7 +268,20 @@
             filter: brightness(1.1);
         }
 
+        .icon-button.is-refreshing svg {
+            transform-box: view-box;
+            transform-origin: center;
+            animation: browser-refresh-spin .8s linear infinite;
+        }
+
+        @keyframes browser-refresh-spin {
+            to { transform: rotate(360deg); }
+        }
+
         .browser-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
             list-style: none;
             margin: 0;
             padding: 0;
@@ -270,18 +291,16 @@
             display: grid;
             gap: .2rem;
 
-            padding: .8rem 0;
+            margin-bottom: .6rem;
+            padding: .8rem;
 
-            border-top: 1px solid #8883;
-        }
-
-        .browser-row:first-child {
-            padding-top: 0;
-            border-top: 0;
+            border: 1px solid #8883;
+            border-radius: .6rem;
+            background: #e2e2e2;
         }
 
         .browser-row:last-child {
-            padding-bottom: 0;
+            margin-bottom: 0;
         }
 
         .browser-name {

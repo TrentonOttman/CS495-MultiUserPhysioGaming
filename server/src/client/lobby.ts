@@ -1,11 +1,13 @@
 import { GAME_IDS, GAME_REGISTRY, type GameId } from "../shared/games.js";
 import { normalizeJoinCode } from "../shared/joinCode.js";
 import {validateLobbyConfig, type LobbyConfig } from "../shared/lobbyConfig.js";
+import { createLobbyBrowser } from "./lobbyBrowser.js";
 
 /**
- * The lobby screen: a create form, and — once a lobby exists — the waiting
- * room showing the configuration, the roster count, the join code and the
- * host's controls.
+ * The lobby screen: a create form, a browser of the public lobbies that already
+ * exist, a join-by-code form, and — once a lobby exists — the waiting room
+ * showing the configuration, the roster count, the join code and the host's
+ * controls.
  *
  * It knows nothing about rooms or sockets. `createLobbyScreen` takes callbacks
  * and returns a controller, so the same screen works for any game: the only
@@ -16,6 +18,9 @@ import {validateLobbyConfig, type LobbyConfig } from "../shared/lobbyConfig.js";
  * as its authority — so the UI and the server can never disagree about what a
  * valid configuration is. The server still decides; this only avoids asking
  * the player to submit something that will bounce.
+ *
+ * The public lobby browser lives in its own module and owns its own polling and
+ * join state; this screen only decides where it sits and when it is hidden.
  */
 
 export interface LobbyScreenCallbacks {
@@ -27,6 +32,19 @@ export interface LobbyScreenCallbacks {
      * and the caller owns the round trip.
      */
     onJoinWithCode(code: string): void;
+    /**
+     * Join a lobby the player picked from the public browser.
+     *
+     * `roomId` is the one from Colyseus's own listing — there is no second
+     * identifier for this — and the caller joins by it exactly as it would for
+     * a code, landing in the same waiting room.
+     *
+     * Must reject if the join did not happen. The browser uses that to report
+     * that a lobby went away or filled up and to re-read the listing, so
+     * swallowing the failure here would leave it showing a stale row with no
+     * explanation.
+     */
+    onJoinListed(roomId: string): Promise<void>;
 }
 
 export interface LobbyScreen {
@@ -42,6 +60,8 @@ export interface LobbyScreen {
     setBusy(busy: boolean): void;
     showError(message: string): void;
     clearError(): void;
+    /** Releases the browser's polling, for when this screen leaves the page. */
+    stop(): void;
 }
 
 export interface LobbyView {
@@ -63,8 +83,10 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
     element.innerHTML = `
         <div class="lobby-header">
             <h2>Play</h2>
-            <p>Create a new lobby or join an existing one.</p>
+            <p>Create a new lobby, join a public one, or enter a code.</p>
         </div>
+
+        <p id="lobby-error" role="alert" hidden></p>
 
         <div id="lobby-menu">
             <form id="create-form" class="lobby-card">
@@ -133,29 +155,33 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
                 </button>
             </form>
 
-            <form id="join-form" class="lobby-card join-card">
-                <div class="card-header">
-                    <h3>Join Lobby</h3>
-                    <p>Enter a code shared by the lobby host.</p>
-                </div>
+            <div class="lobby-join-row">
+                <p class="lobby-divider">or join directly</p>
 
-                <div class="form-group">
-                    <label for="join-code">Join code</label>
-                    <input
-                        name="joinCode"
-                        id="join-code"
-                        maxlength="6"
-                        placeholder="ABC123"
-                        autocomplete="off"
-                        autocapitalize="characters"
-                        spellcheck="false"
-                    />
-                </div>
+                <form id="join-form" class="lobby-card join-card">
+                    <div class="card-header">
+                        <h3>Join Lobby</h3>
+                        <p>Enter a code shared by the lobby host.</p>
+                    </div>
 
-                <button type="submit" class="secondary-button">
-                    Join Lobby
-                </button>
-            </form>
+                    <div class="form-group">
+                        <label for="join-code">Join code</label>
+                        <input
+                            name="joinCode"
+                            id="join-code"
+                            maxlength="6"
+                            placeholder="ABC123"
+                            autocomplete="off"
+                            autocapitalize="characters"
+                            spellcheck="false"
+                        />
+                    </div>
+
+                    <button type="submit" class="secondary-button">
+                        Join Lobby
+                    </button>
+                </form>
+            </div>
         </div>
 
         <div id="lobby-waiting" class="lobby-card waiting-room" hidden>
@@ -182,7 +208,6 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
             </button>
         </div>
 
-        <p id="lobby-error" role="alert" hidden></p>
     `;
 
     const form = element.querySelector<HTMLFormElement>("#create-form")!;
@@ -190,8 +215,24 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
     const error = element.querySelector<HTMLElement>("#lobby-error")!;
     const startButton = element.querySelector<HTMLButtonElement>("#lobby-start")!;
     const joinForm = element.querySelector<HTMLFormElement>("#join-form")!;
+    const joinRow = element.querySelector<HTMLElement>(".lobby-join-row")!;
     const gameSelect = element.querySelector<HTMLSelectElement>("#lobby-game")!;
     const maxPlayersSelect = element.querySelector<HTMLSelectElement>("#lobby-max")!;
+
+    // Sits between the create form and the join-code row: the two ways a player
+    // arrives without a code, side by side, with the code entry below them.
+    const browser = createLobbyBrowser({
+        onJoin: (roomId) => callbacks.onJoinListed(roomId),
+        onError: showError,
+    });
+    joinRow.parentElement!.insertBefore(browser.element, joinRow);
+
+    const matchBrowserHeight = () => {
+        browser.element.style.height = `${form.getBoundingClientRect().height}px`;
+    };
+    matchBrowserHeight();
+    const createFormResizeObserver = new ResizeObserver(matchBrowserHeight);
+    createFormResizeObserver.observe(form);
 
     function updatePlayerOptions() {
         const gameId = gameSelect.value as GameId;
@@ -253,6 +294,11 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
 
     function setBusy(busy: boolean) {
         for (const control of element.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("input, select, button")) {
+            // The browser panel owns its own button states — joining, full,
+            // disabled — so a blanket pass would stomp them, most visibly by
+            // re-enabling a Join button that is mid-request.
+            if (control.closest("#lobby-browser") !== null) { continue; }
+
             control.disabled = busy;
         }
     }
@@ -269,7 +315,8 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
 
     function renderLobby(view: LobbyView) {
         form.hidden = true;
-        joinForm.hidden = true;
+        joinRow.hidden = true;
+        browser.element.hidden = true;
         waiting.hidden = false;
 
         element.querySelector("#waiting-name")!.textContent = view.lobbyName || "Unnamed lobby";
@@ -281,7 +328,16 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
             ? "You are the host."
             : "Waiting for the host to start…";
 
+        const minimum = GAME_REGISTRY[view.gameId as GameId]?.minPlayers ?? 1;
+        const needsMorePlayers = view.memberCount < minimum;
         startButton.hidden = !view.isHost || view.status !== "configuring";
+        startButton.disabled = needsMorePlayers;
+        startButton.textContent = needsMorePlayers
+            ? `Waiting for players (${view.memberCount}/${minimum})`
+            : "Start Game";
+        startButton.title = needsMorePlayers
+            ? `At least ${minimum} players are required to start.`
+            : "";
     }
 
     return {
@@ -290,6 +346,7 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
         setBusy,
         showError,
         clearError,
+        stop() { browser.stop(); },
         get onStart() { return onStart; },
         set onStart(handler: (() => void) | null) { onStart = handler; },
     };

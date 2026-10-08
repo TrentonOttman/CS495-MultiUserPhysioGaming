@@ -13,9 +13,10 @@ import {
  */
 import { MyRoom } from "./rooms/MyRoom.js";
 import { PongRoom } from "./rooms/PongRoom.js";
-import { resolveJoinCode } from "./client/matchmaking/joinCodeIndex.js";
+import { resolveJoinCode } from "./lobby/joinCodeIndex.js";
 // Aliased: `LobbyRoom` above is Colyseus's built-in room browser. This is ours.
 import { LobbyRoom as SessionLobby } from "./rooms/LobbyRoom.js";
+import { listPublicLobbies } from "./lobby/publicLobbyListing.js";
 
 const server = defineServer({
 
@@ -58,6 +59,20 @@ const server = defineServer({
          */
         resolve_join_code: createEndpoint("/api/lobby/resolve/:code", { method: "GET" }, async (ctx) => {
             return { roomId: resolveJoinCode(String(ctx.params.code)) };
+        }),
+
+        /**
+         * The public lobby browser's data source: every public lobby, with the
+         * occupancy and capacity Colyseus already tracks in its room listing.
+         *
+         * This is a projection of that listing, not a registry — there is no
+         * state here to fall out of step with the rooms themselves. The client's
+         * poll is therefore a read, and joining is still a `joinById` the room
+         * arbitrates. Like the resolve endpoint, it answers 200 with whatever it
+         * knows; "no public lobbies" is an ordinary answer, not a fault.
+         */
+        public_lobbies: createEndpoint("/api/lobby/public", { method: "GET" }, async () => {
+            return { lobbies: await listPublicLobbies() };
         }),
     }),
 

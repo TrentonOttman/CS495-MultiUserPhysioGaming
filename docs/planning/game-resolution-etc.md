@@ -4,6 +4,8 @@
 - Current Pong scales horizontally with device width in a window within the browser, but static vertically at 604px
 - Our version doesn't need to be as high quality
   - 1280 x 720 ; 16:9 is basic ratio/res
+  - 720p is a nice simple middle ground
+  - 640 x 480 (480p) is a lower default res one that could also work-- everything is pixels and scales as such
 - Aspect ratio should fit most laptops/desktops
 - Fullscreen scaling is something to be considered further on in development, but for now, it can be a window inside the broswer
   - Example: Cool Math Games

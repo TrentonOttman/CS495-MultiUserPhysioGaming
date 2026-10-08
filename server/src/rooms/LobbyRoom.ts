@@ -5,8 +5,8 @@ import {
     generateUniqueJoinCode,
     isRoomJoinCode,
     releaseJoinCode,
-} from "../client/matchmaking/joinCodeIndex.js";
-import { getGameRoomName } from "../shared/games.js";
+} from "../lobby/joinCodeIndex.js";
+import { GAME_REGISTRY, getGameRoomName } from "../shared/games.js";
 import {
     DEFAULT_LOBBY_CONFIG,
     toLobbyMetadata,
@@ -91,7 +91,7 @@ export class LobbyRoom extends Room<{
         return this.queue;
     }
 
-    onCreate(options: any) {
+    async onCreate(options: any) {
         // The game is fixed at lobby-creation time, so a lobby only ever concerns
         // one game; the host configures everything else afterwards.
         const gameId = options?.gameId;
@@ -101,6 +101,27 @@ export class LobbyRoom extends Room<{
 
         this.config = { ...DEFAULT_LOBBY_CONFIG, gameId: gameId as LobbyConfig["gameId"] };
         this.state.gameId = gameId as string;
+
+        // A host-created lobby arrives with its full configuration in the
+        // matchmaking request. Validate it before Colyseus commits the room so
+        // a duplicate public name cannot leave an empty, unnamed lobby behind.
+        // The configure message remains supported for rooms created by older
+        // clients and for later host updates.
+        if (options?.name !== undefined) {
+            const result = validateLobbyConfig(options);
+            if (result.ok === false) {
+                throw new ServerError(ErrorCode.MATCHMAKE_UNHANDLED, result.error);
+            }
+            if (await this.publicNameTaken(result.config)) {
+                throw new ServerError(ErrorCode.MATCHMAKE_UNHANDLED, "Another public lobby already uses that name.");
+            }
+            this.config = result.config;
+            this.state.lobbyName = result.config.name;
+            this.state.maxPlayers = result.config.maxPlayers;
+            this.state.isPrivate = result.config.isPrivate;
+            this.maxClients = result.config.maxPlayers;
+            await this.setMetadata(toLobbyMetadata(result.config));
+        }
 
         // A code is minted per lobby regardless of visibility, so flipping a
         // lobby to public and back does not invalidate links already shared.
@@ -245,6 +266,15 @@ export class LobbyRoom extends Room<{
         const result = validateLobbyConfig(this.config);
         if (result.ok === false) {
             return this.reject(client, result.field, result.error);
+        }
+
+        const game = GAME_REGISTRY[result.config.gameId];
+        if (this.members.length < game.minPlayers) {
+            return this.reject(
+                client,
+                "",
+                `At least ${game.minPlayers} players are required to start ${game.label}.`,
+            );
         }
 
         const roomName = getGameRoomName(result.config.gameId);

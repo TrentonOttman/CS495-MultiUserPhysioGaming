@@ -1,5 +1,5 @@
 import { randomInt } from "node:crypto";
-import { JOIN_CODE_ALPHABET, JOIN_CODE_LENGTH } from "../../shared/joinCode.js";
+import { JOIN_CODE_ALPHABET, JOIN_CODE_LENGTH } from "../shared/joinCode.js";
 
 /**
  * Server-side join code generation.

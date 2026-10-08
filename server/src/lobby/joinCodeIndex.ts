@@ -1,5 +1,5 @@
 import { generateJoinCode } from "./joinCodeGenerator.js";
-import { normalizeJoinCode } from "../../shared/joinCode.js";
+import { normalizeJoinCode } from "../shared/joinCode.js";
 
 /**
  * The join-code index: `code -> roomId`.

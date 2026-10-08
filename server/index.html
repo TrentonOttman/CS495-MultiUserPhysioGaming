@@ -42,7 +42,7 @@
             display: grid;
             grid-template-columns: 1.4fr 1fr;
             gap: 1rem;
-            align-items: start;
+            align-items: stretch;
         }
 
         .lobby-card {
@@ -191,6 +191,151 @@
             font-weight: 700;
         }
 
+        /* Join by code: spans the menu, below the create form and the browser */
+
+        .lobby-join-row {
+            grid-column: 1 / -1;
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+        }
+
+        .lobby-divider {
+            margin: 0;
+
+            text-align: center;
+            text-transform: uppercase;
+
+            font-size: .75rem;
+            font-weight: 700;
+            letter-spacing: .1em;
+            opacity: .45;
+        }
+
+        .join-card {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: .75rem 1rem;
+            align-items: end;
+        }
+
+        .join-card .card-header {
+            grid-column: 1 / -1;
+            margin-bottom: 0;
+        }
+
+        .join-card .form-group {
+            margin-bottom: 0;
+        }
+
+        /* Public lobby browser */
+
+        .browser-card {
+            box-sizing: border-box;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .browser-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .icon-button {
+            flex: none;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            width: 2rem;
+            height: 2rem;
+            padding: 0;
+
+            border: 1px solid #8886;
+            border-radius: .45rem;
+
+            background: transparent;
+            color: inherit;
+            cursor: pointer;
+        }
+
+        .icon-button:hover {
+            filter: brightness(1.1);
+        }
+
+        .icon-button.is-refreshing svg {
+            transform-box: view-box;
+            transform-origin: center;
+            animation: browser-refresh-spin .8s linear infinite;
+        }
+
+        @keyframes browser-refresh-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .browser-list {
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .browser-row {
+            display: grid;
+            gap: .2rem;
+
+            margin-bottom: .6rem;
+            padding: .8rem;
+
+            border: 1px solid #8883;
+            border-radius: .6rem;
+            background: #e2e2e2;
+        }
+
+        .browser-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .browser-name {
+            font-weight: 600;
+
+            /* A lobby name is player-supplied and up to 40 characters. */
+            overflow-wrap: anywhere;
+        }
+
+        .browser-detail {
+            display: flex;
+            justify-content: space-between;
+            gap: .75rem;
+
+            font-size: .9rem;
+            opacity: .7;
+        }
+
+        .browser-action {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .browser-join {
+            width: auto;
+            padding: .45rem 1.25rem;
+            font-size: .9rem;
+        }
+
+        .browser-note {
+            margin: .75rem 0 0;
+            font-size: .9rem;
+            opacity: .65;
+        }
+
         /* Waiting room */
 
         .waiting-room {
@@ -275,7 +420,8 @@
                 grid-template-columns: 1fr;
             }
 
-            .form-row {
+            .form-row,
+            .join-card {
                 grid-template-columns: 1fr;
             }
         }

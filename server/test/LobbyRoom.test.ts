@@ -7,16 +7,18 @@ import { getTestServer } from "./harness.js";
 import type { LobbyRoom } from "../src/rooms/LobbyRoom.js";
 import type { PongRoom } from "../src/rooms/PongRoom.js";
 import { MIN_PLAYERS, MAX_PLAYERS, validateLobbyConfig } from "../src/shared/lobbyConfig.js";
-import { getGameRoomName } from "../src/shared/games.js";
-import { resolveJoinCode } from "../src/client/matchmaking/joinCodeIndex.js";
+import { GAME_REGISTRY, getGameRoomName } from "../src/shared/games.js";
+import { resolveJoinCode } from "../src/lobby/joinCodeIndex.js";
+import type { PublicLobbySummary } from "../src/lobby/publicLobbyListing.js";
 
 /**
  * Covers the lobby-configuration PBI: creating a lobby, naming it, choosing a
  * size and visibility, the room that gets created, host identity, and the
  * rejection of invalid configurations.
  *
- * Joining by code, public discovery and host transfer belong to later PBIs and
- * are deliberately not asserted here.
+ * Also covers public discovery — the listing the public lobby browser polls —
+ * and the join-code paths. Host transfer is still not asserted; it belongs to a
+ * later PBI.
  */
 describe("session_lobby", () => {
     let colyseus: ColyseusTestServer<typeof appConfig>;
@@ -34,9 +36,21 @@ describe("session_lobby", () => {
         return { room, client };
     }
 
+    /**
+     * Pong's rules, read from the registry rather than restated here.
+     *
+     * `MIN_PLAYERS`/`MAX_PLAYERS` in `shared/lobbyConfig.ts` are only the shared
+     * envelope; `validateLobbyConfig` bounds a lobby by the *game's* own range,
+     * which is narrower. These fixtures used to hardcode `maxPlayers: 6`, a size
+     * Pong does not allow, so every `configure` built on it was rejected and a
+     * dozen tests failed — or, worse, passed for the wrong reason. Any size that
+     * depends on the game has to be read from the game.
+     */
+    const pongRule = GAME_REGISTRY.pong;
+
     const validConfig = {
         name: "Friday Group",
-        maxPlayers: 6,
+        maxPlayers: pongRule.minPlayers,
         isPrivate: false,
     };
 
@@ -63,8 +77,10 @@ describe("session_lobby", () => {
     });
 
     describe("configuring a lobby", () => {
-        it("accepts the minimum and maximum sizes", async () => {
-            for (const maxPlayers of [MIN_PLAYERS, MAX_PLAYERS]) {
+        it("accepts a size the game allows", async () => {
+            // One size when the game fixes its player count, two when it accepts
+            // a range — derived from the registry, so a second game needs no edit.
+            for (const maxPlayers of new Set([pongRule.minPlayers, pongRule.maxPlayers])) {
                 // A distinct name per iteration: public lobbies may not share one.
                 const { room, client } = await createLobby();
                 client.send("configure", { ...validConfig, name: `Size ${maxPlayers}`, maxPlayers });
@@ -87,14 +103,29 @@ describe("session_lobby", () => {
             assert.strictEqual(room.metadata.isPrivate, true);
         });
 
-        it("rejects sizes outside 2..12", async () => {
-            for (const maxPlayers of [1, 13, 0, -3]) {
+        it("rejects a size the game does not allow", async () => {
+            // `MAX_PLAYERS` is in this list on purpose: the shared envelope is not
+            // automatically a size this game accepts.
+            const rejected = [
+                pongRule.minPlayers - 1,
+                pongRule.maxPlayers + 1,
+                MAX_PLAYERS,
+                0,
+                -3,
+            ];
+
+            for (const maxPlayers of new Set(rejected)) {
                 const { room, client } = await createLobby();
                 client.send("configure", { ...validConfig, maxPlayers });
                 const payload = await client.waitForMessage("error");
 
-                assert.match(payload.error, /between 2 and 12/);
-                assert.strictEqual(room.state.maxPlayers, MIN_PLAYERS, "the rejected value is not applied");
+                // The refusal cites the game's own rule, not the shared envelope.
+                assert.match(payload.error, new RegExp(pongRule.label));
+                assert.strictEqual(
+                    room.state.maxPlayers,
+                    MIN_PLAYERS,
+                    "the rejected value is not applied",
+                );
             }
         });
 
@@ -204,21 +235,23 @@ describe("session_lobby", () => {
 
     describe("starting the game", () => {
         it("creates the game room with the configured lobby", async () => {
+            const size = pongRule.maxPlayers;
             const { room, client } = await createLobby();
-            client.send("configure", { ...validConfig, maxPlayers: 4 });
+            client.send("configure", { ...validConfig, maxPlayers: size });
             await room.waitForNextPatch();
+            await colyseus.connectTo(room);
 
             client.send("start");
             const ready = await client.waitForMessage("gameReady");
 
             const game = colyseus.getRoomById<PongRoom>(ready.roomId);
             assert.ok(game, "the game room exists");
-            assert.strictEqual(game.maxClients, 4, "the game room honours the lobby size");
+            assert.strictEqual(game.maxClients, size, "the game room honours the lobby size");
 
             // Assert the replicated state, not just the listing: the SDK room
             // exposes no metadata, so state is the only way a client can see
             // the configuration it was started with.
-            assert.strictEqual(game.state.maxPlayers, 4);
+            assert.strictEqual(game.state.maxPlayers, size);
             assert.strictEqual(game.state.lobbyName, validConfig.name);
             assert.strictEqual(game.state.isPrivate, false);
             assert.strictEqual(game.state.gameId, "pong");
@@ -226,13 +259,16 @@ describe("session_lobby", () => {
             assert.strictEqual(game.state.joinCode, room.state.joinCode, "the join code carries into the game");
 
             // And the listing, which is what the room browser reads.
-            assert.strictEqual(game.metadata.maxPlayers, 4);
+            assert.strictEqual(game.metadata.maxPlayers, size);
             assert.strictEqual(game.metadata.lobbyName, validConfig.name);
         });
 
         it("starts the room named by the registry", async () => {
-            const { client } = await createLobby();
+            const { room, client } = await createLobby();
             client.send("configure", validConfig);
+            await room.waitForNextPatch();
+            await colyseus.connectTo(room);
+
             client.send("start");
             const ready = await client.waitForMessage("gameReady");
 
@@ -260,9 +296,24 @@ describe("session_lobby", () => {
             assert.match(payload.error, /name/);
         });
 
+        it("refuses to start before the game minimum is met", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", validConfig);
+            await room.waitForNextPatch();
+
+            client.send("start");
+            const payload = await client.waitForMessage("error");
+
+            assert.match(payload.error, new RegExp(`at least ${pongRule.minPlayers} players`, "i"));
+            assert.strictEqual(room.state.status, "configuring", "the game did not start");
+        });
+
         it("ignores a second start", async () => {
             const { room, client } = await createLobby();
             client.send("configure", validConfig);
+            await room.waitForNextPatch();
+            await colyseus.connectTo(room);
+
             client.send("start");
             await client.waitForMessage("gameReady");
 
@@ -342,6 +393,7 @@ describe("session_lobby", () => {
             client.send("configure", { ...validConfig, isPrivate: true });
             await room.waitForNextPatch();
             const code = room.state.joinCode;
+            await colyseus.connectTo(room, { joinCode: code });
 
             client.send("start");
             const ready = await client.waitForMessage("gameReady");
@@ -362,6 +414,174 @@ describe("session_lobby", () => {
             for (const bad of badValues) {
                 assert.strictEqual(validateLobbyConfig(bad).ok, false);
             }
+        });
+    });
+
+    /**
+     * The endpoint the public lobby browser polls.
+     *
+     * `maxPlayers` is 2 here because that is all `GAME_REGISTRY.pong` accepts.
+     * The module-level `validConfig` asks for 6, which the registry rejects, so
+     * a lobby configured from it is never configured at all — these tests need a
+     * lobby that really is configured, so they do not borrow it.
+     */
+    describe("the public lobby listing", () => {
+        const publicConfig = { name: "Open Session", maxPlayers: 2, isPrivate: false };
+
+        /** Reads the listing the browser renders. */
+        async function fetchLobbies(): Promise<PublicLobbySummary[]> {
+            const response = await colyseus.http.get<{ lobbies: PublicLobbySummary[] }>("/api/lobby/public");
+            // An empty listing is an ordinary answer, not a fault.
+            assert.strictEqual(response.statusCode, 200);
+            return response.data.lobbies;
+        }
+
+        /**
+         * The listing is written as sockets close and `setMatchmaking` settles,
+         * both of which can land after the message that caused them, so these
+         * assertions wait for the state they are about rather than racing it.
+         * The last listing is returned so a timeout still fails on a diff.
+         */
+        async function waitForLobbies(match: (lobbies: PublicLobbySummary[]) => boolean) {
+            let lobbies = await fetchLobbies();
+
+            for (let attempt = 0; attempt < 40 && !match(lobbies); attempt++) {
+                await new Promise((resolve) => setTimeout(resolve, 50));
+                lobbies = await fetchLobbies();
+            }
+
+            return lobbies;
+        }
+
+        it("describes a public lobby from the room listing", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", { ...publicConfig, name: "Physio Party" });
+
+            const lobbies = await waitForLobbies((all) => all.some((l) => l.roomId === room.roomId));
+            const found = lobbies.find((l) => l.roomId === room.roomId);
+
+            assert.ok(found, "the lobby is offered to the browser");
+            assert.strictEqual(found!.lobbyName, "Physio Party");
+            assert.strictEqual(found!.gameId, "pong");
+            assert.strictEqual(found!.clients, 1, "the host is counted by the server");
+            assert.strictEqual(found!.maxClients, 2, "capacity comes from the listing, not the metadata");
+        });
+
+        it("omits a private lobby", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", { ...publicConfig, name: "Hidden", isPrivate: true });
+            await room.waitForNextPatch();
+
+            // Visibility has to have reached the listing first, or this would
+            // pass for the wrong reason — the lobby would still be unconfigured,
+            // and an unnamed lobby is omitted too.
+            assert.strictEqual(room.metadata.lobbyName, "Hidden");
+            assert.strictEqual(room.metadata.isPrivate, true);
+
+            // Named and marked private, and still not offered. Waiting is what
+            // makes the assertion mean something: an immediate check would also
+            // pass against a filter that had merely not been applied yet.
+            const lobbies = await waitForLobbies((all) => all.some((l) => l.lobbyName === "Hidden"));
+
+            assert.ok(
+                !lobbies.some((l) => l.lobbyName === "Hidden"),
+                "a private lobby is never fetched, so it cannot be hidden-but-present",
+            );
+        });
+
+        it("omits a lobby that has not been configured yet", async () => {
+            const { room } = await createLobby();
+
+            const lobbies = await fetchLobbies();
+
+            // A lobby is listable the moment it is created, before the host has
+            // named it. Publishing that would show an empty, unjoinable row.
+            assert.ok(
+                !lobbies.some((l) => l.roomId === room.roomId),
+                "an unnamed lobby is not offered",
+            );
+        });
+
+        it("tracks occupancy as players join and leave", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", publicConfig);
+            await waitForLobbies((all) => all.some((l) => l.roomId === room.roomId));
+
+            const guest = await colyseus.connectTo(room);
+            const full = await waitForLobbies(
+                (all) => all.some((l) => l.roomId === room.roomId && l.clients === 2),
+            );
+            const occupied = full.find((l) => l.roomId === room.roomId)!;
+            assert.strictEqual(occupied.clients, 2);
+            assert.strictEqual(
+                occupied.clients >= occupied.maxClients,
+                true,
+                "at capacity, which is what the browser renders as Full",
+            );
+
+            await guest.leave();
+            const emptied = await waitForLobbies(
+                (all) => all.some((l) => l.roomId === room.roomId && l.clients === 1),
+            );
+
+            assert.strictEqual(
+                emptied.find((l) => l.roomId === room.roomId)!.clients,
+                1,
+                "a seat going free is reflected, so Full returns to Join",
+            );
+        });
+
+        it("omits the game room a lobby starts", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", publicConfig);
+            await waitForLobbies((all) => all.some((l) => l.roomId === room.roomId));
+            await colyseus.connectTo(room);
+
+            client.send("start");
+            const ready = await client.waitForMessage("gameReady");
+
+            const lobbies = await fetchLobbies();
+
+            assert.ok(colyseus.getRoomById(ready.roomId), "the game room exists");
+            assert.ok(
+                !lobbies.some((l) => l.roomId === ready.roomId),
+                "a match in progress is not a lobby to discover",
+            );
+        });
+
+        it("omits lobbies that have closed", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", publicConfig);
+            await waitForLobbies((all) => all.some((l) => l.roomId === room.roomId));
+
+            await colyseus.cleanup();
+
+            const lobbies = await fetchLobbies();
+            assert.deepStrictEqual(lobbies, [], "a disposed lobby simply stops being listed");
+        });
+
+        it("never exposes a join code", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", { ...publicConfig, name: "Secret Session" });
+            await waitForLobbies((all) => all.some((l) => l.roomId === room.roomId));
+
+            const code = room.state.joinCode;
+            assert.match(code, /^[A-Z2-9]{6}$/, "the lobby really does have a code to leak");
+
+            const lobbies = await fetchLobbies();
+            const found = lobbies.find((l) => l.roomId === room.roomId)!;
+
+            // A code lives in state and never in metadata, so it is not in the
+            // listing this is built from. Asserting the whole field set is what
+            // keeps it that way as the projection grows.
+            assert.deepStrictEqual(
+                Object.keys(found).sort(),
+                ["clients", "gameId", "lobbyName", "locked", "maxClients", "roomId"],
+            );
+            assert.ok(
+                !JSON.stringify(lobbies).includes(code),
+                "no join code appears anywhere in the public listing",
+            );
         });
     });
 });

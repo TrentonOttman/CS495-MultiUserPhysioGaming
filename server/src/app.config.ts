@@ -13,6 +13,7 @@ import {
  */
 import { MyRoom } from "./rooms/MyRoom.js";
 import { PongRoom } from "./rooms/PongRoom.js";
+import { PhysioParkRoom } from "./rooms/PhysioParkRoom.js";
 import { resolveJoinCode } from "./lobby/joinCodeIndex.js";
 // Aliased: `LobbyRoom` above is Colyseus's built-in room browser. This is ours.
 import { LobbyRoom as SessionLobby } from "./rooms/LobbyRoom.js";
@@ -31,6 +32,7 @@ const server = defineServer({
     rooms: {
         my_room: defineRoom(MyRoom).enableRealtimeListing(),
         pong_room: defineRoom(PongRoom).enableRealtimeListing(),
+        physio_park_room: defineRoom(PhysioParkRoom).enableRealtimeListing(),
         session_lobby: defineRoom(SessionLobby).enableRealtimeListing(),
         lobby: defineRoom(LobbyRoom),
     },

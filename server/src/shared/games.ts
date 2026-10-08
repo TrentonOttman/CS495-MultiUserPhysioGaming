@@ -8,6 +8,7 @@
  */
 export const GAME_REGISTRY = {
     pong: { roomName: "pong_room", label: "Pong", minPlayers: 2, maxPlayers: 2 },
+    physio_park: { roomName: "physio_park_room", label: "Physio Park", minPlayers: 2, maxPlayers: 8 },
 } as const;
 
 export type GameId = keyof typeof GAME_REGISTRY;

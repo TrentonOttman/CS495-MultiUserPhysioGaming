@@ -20,7 +20,7 @@
     "license": "UNLICENSED",
     "devDependencies": {
         "@colyseus/loadtest": "^0.18.1",
-        "@colyseus/sdk": "^0.18.2",
+        "@colyseus/sdk": "^0.18.5",
         "@colyseus/testing": "^0.18.5",
         "@types/express": "^5.0.6",
         "@types/mocha": "^10.0.1",
@@ -36,6 +36,7 @@
         "@colyseus/schema": "^5.0.14",
         "@colyseus/tools": "^0.18.1",
         "colyseus": "^0.18.2",
-        "express": "^5.2.1"
+        "express": "^5.2.1",
+        "phaser": "^4.2.1"
     }
 }

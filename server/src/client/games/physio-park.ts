@@ -3,6 +3,7 @@ import { Room, Callbacks, type ColyseusSDK } from "@colyseus/sdk";
 import { PhysioParkRoom } from "../../rooms/PhysioParkRoom";
 import type { default as server } from "../../app.config.js";
 import { Player } from "../../rooms/schema/PhysioParkState.js";
+import { setupRoom } from "./roomSetup.ts";
 
 // custom scene class
 export class GameScene extends Phaser.Scene {
@@ -85,7 +86,8 @@ export class GameScene extends Phaser.Scene {
 }
 
 export async function startPhysioPark(client: ColyseusSDK<typeof server>, roomId: string) {
-    const room = await client.joinById<PhysioParkRoom>(roomId);
+    var room = await client.joinById<PhysioParkRoom>(roomId);
+    room = setupRoom(room);
 
     // game config
     const config: Phaser.Types.Core.GameConfig = {

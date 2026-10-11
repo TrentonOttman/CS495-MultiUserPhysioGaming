@@ -31,6 +31,7 @@ export abstract class LobbyCapableRoom<S extends LobbyState, I = never> extends 
     maxClients = 2;
     minClients = 2;
 
+    //time between dropping connection and being kicked
     reconnectionTime = 5;
 
     /** Set from the validated options so `onLobbyCreate` can read them. */
@@ -116,9 +117,11 @@ export abstract class LobbyCapableRoom<S extends LobbyState, I = never> extends 
         this.state.players.delete(client.sessionId);
 
         this.broadcast("leave", "Player Left");
+        
 
         if (this.clients.length < this.minClients)
         {
+            this.broadcast("gameEnded", "Not enough players.");
             this.disconnect();
         }
     }

@@ -13,10 +13,91 @@ const arenaEl = document.getElementById("arena")!;
 const gameEl = document.getElementById("game")!;
 const appEl = document.getElementById("app")!;
 const scoreEl = document.getElementById("score")!;
+const rejoinButton = document.getElementById("rejoin")!;
+
+const REJOIN_KEY = "colyseus-rejoin";
+
+type RejoinInfo = {
+    token: string;
+    gameId: GameId;
+    roomId: string;
+};
+
+function getRejoinInfo(): RejoinInfo | null {
+    const saved = sessionStorage.getItem(REJOIN_KEY);
+
+    if (!saved) return null;
+
+    try {
+        return JSON.parse(saved) as RejoinInfo;
+    } catch {
+        sessionStorage.removeItem(REJOIN_KEY);
+        return null;
+    }
+}
+
+function showRejoinButton() {
+    rejoinButton.hidden = getRejoinInfo() === null;
+}
+
+rejoinButton.addEventListener("click", async () => {
+    const saved = sessionStorage.getItem(REJOIN_KEY);
+
+    if (!saved) return;
+
+    const info = JSON.parse(saved) as RejoinInfo;
+
+    try {
+        const room = await client.reconnect(info.token);
+
+        // Reuse the existing game initialization with the
+        // already-reconnected room.
+        rejoinButton.hidden = true;
+        await resumeGame(info.gameId, room);
+    } catch (error) {
+        console.error("Could not rejoin game:", error);
+
+        sessionStorage.removeItem(REJOIN_KEY);
+        rejoinButton.hidden = true;
+        statusEl.textContent = "The game is no longer available.";
+    }
+});
+
+async function resumeGame(
+    gameId: GameId,
+    room: Room
+) {
+    lobbyScreen.stop();
+    lobbyScreen.element.remove();
+
+    switch (gameId) {
+        case "pong":
+            await startPong(client, room, {
+                game: gameEl,
+                arena: arenaEl,
+                score: scoreEl,
+                status: statusEl,
+            });
+            break;
+
+        case "physio-park":
+            await startPhysioPark(client, room);
+            break;
+
+        default:
+            throw new Error(
+                `No client implementation registered for game "${gameId}".`
+            );
+    }
+}
+
+showRejoinButton();
 
 const client = new ColyseusSDK<typeof server>(
     `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`
 );
+
+
 
 /**
  * Creates the lobby and applies the configuration the host just submitted.

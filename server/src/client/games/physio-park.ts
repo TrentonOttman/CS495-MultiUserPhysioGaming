@@ -85,9 +85,17 @@ export class GameScene extends Phaser.Scene {
     }
 }
 
-export async function startPhysioPark(client: ColyseusSDK<typeof server>, roomId: string) {
-    var room = await client.joinById<PhysioParkRoom>(roomId);
-    room = setupRoom(room);
+export async function startPhysioPark(client: ColyseusSDK<typeof server>, roomOrId: string | Room<PhysioParkRoom, any>) {
+    console.log("got here");
+    let room: Room<PhysioParkRoom, any>;
+    if (typeof roomOrId === "string") {
+        // Normal game start: join the room by ID.
+        room = await client.joinById<PhysioParkRoom>(roomOrId);
+    } else {
+        // Rejoin: reuse the room returned by client.reconnect().
+        room = roomOrId;
+    }
+    room = setupRoom(room, "physio-park");
 
     // game config
     const config: Phaser.Types.Core.GameConfig = {

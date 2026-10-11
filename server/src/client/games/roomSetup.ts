@@ -1,4 +1,7 @@
 import { Room } from "colyseus";
+import type { GameId } from "../../shared/games.js";
+
+const REJOIN_KEY = "colyseus-rejoin";
 
 function displayStatus(data)
 {
@@ -6,9 +9,16 @@ function displayStatus(data)
     status.textContent = data;
 }
 
-export function setupRoom<T>(room: Room<T>): Room<T>
+export function setupRoom<T>(room: Room<T>, gameId: GameId): Room<T>
 {
-    sessionStorage.setItem("reconnectionToken", room.reconnectionToken);
+    sessionStorage.setItem(
+        "colyseus-rejoin",
+        JSON.stringify({
+            token: room.reconnectionToken,
+            gameId,
+            roomId: room.id,
+        })
+    );
 
     room.onReconnect(() => {
         // the token is refreshed on every successful connection
@@ -26,6 +36,14 @@ export function setupRoom<T>(room: Room<T>): Room<T>
 
     room.onMessage("leave", (data) => {
         displayStatus(data);
+    });
+
+    
+
+    room.onMessage("gameEnded", (data) => {
+        sessionStorage.removeItem(REJOIN_KEY);
+
+        displayStatus(data ?? "The game has closed.");
     });
 
     return room;

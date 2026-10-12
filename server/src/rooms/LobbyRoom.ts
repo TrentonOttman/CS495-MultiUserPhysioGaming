@@ -30,6 +30,7 @@ export interface ConfigurePayload {
 export interface LobbyClientMessages {
     error: { field: LobbyConfigField | ""; error: string };
     gameReady: { roomId: string; gameId: string };
+    kicked: { message: string };
 }
 
 export type LobbyClient = Client<{ messages: LobbyClientMessages }>;
@@ -72,6 +73,10 @@ export class LobbyRoom extends Room<{
 
         /** Host-only. Creates the game room and hands everyone its id. */
         start: (client: LobbyClient) => this.enqueue(() => this.handleStart(client)),
+
+        /** Host-only. Removes another player from the waiting room. */
+        kick: (client: LobbyClient, message: { sessionId: string }) =>
+            this.enqueue(() => this.handleKick(client, message)),
     };
 
     /**
@@ -156,7 +161,8 @@ export class LobbyRoom extends Room<{
         }
 
         this.members.push(client);
-        this.state.memberCount = this.members.length;
+        this.state.playerIds.push(client.sessionId);
+        this.state.memberCount = this.state.playerIds.length;
 
         if (this.state.hostId === "") {
             this.state.hostId = client.sessionId;
@@ -165,15 +171,17 @@ export class LobbyRoom extends Room<{
 
     onLeave(client: LobbyClient) {
         this.members = this.members.filter((c) => c.sessionId !== client.sessionId);
-        this.state.memberCount = this.members.length;
+        const playerIndex = this.state.playerIds.indexOf(client.sessionId);
+        if (playerIndex >= 0) {
+            this.state.playerIds.splice(playerIndex, 1);
+        }
+        this.state.memberCount = this.state.playerIds.length;
 
-        // Host transfer is deliberately not implemented: it is not in this PBI's
-        // acceptance criteria and needs its own rules (does a mid-game lobby
-        // promote? does a reconnected host reclaim the role?). Until then a
-        // permanent host disconnect leaves the lobby without one. The onDrop
-        // reconnection window covers the common case of a host whose tab slept.
-        if (this.members.length === 0) {
-            this.state.hostId = "";
+        // A dropped client keeps its seat during the reconnection window. Once
+        // Colyseus calls onLeave permanently, promote the earliest remaining
+        // member so the group can still start a classroom session.
+        if (this.state.hostId === client.sessionId) {
+            this.state.hostId = this.state.playerIds[0] ?? "";
         }
     }
 
@@ -215,6 +223,9 @@ export class LobbyRoom extends Room<{
         if (result.ok === false) {
             return this.reject(client, result.field, result.error);
         }
+        if (result.config.maxPlayers < this.members.length) {
+            return this.reject(client, "maxPlayers", "Maximum players cannot be lower than the number already in the lobby.");
+        }
 
         const nameTaken = await this.publicNameTaken(result.config);
         if (nameTaken) {
@@ -248,6 +259,26 @@ export class LobbyRoom extends Room<{
         if (config.isPrivate) { return false; }
         const rooms = await matchMaker.query({ name: "session_lobby", lobbyName: config.name });
         return rooms.some((room) => room.roomId !== this.roomId);
+    }
+
+    private async handleKick(client: LobbyClient, message: { sessionId: string }) {
+        if (!this.isHost(client)) {
+            return this.reject(client, "", "Only the lobby host can remove players.");
+        }
+        if (this.state.status !== "configuring") {
+            return this.reject(client, "", "Players cannot be removed after the game starts.");
+        }
+        if (typeof message?.sessionId !== "string" || message.sessionId === client.sessionId) {
+            return this.reject(client, "", "Choose another player to remove.");
+        }
+
+        const target = this.members.find((member) => member.sessionId === message.sessionId);
+        if (!target) {
+            return this.reject(client, "", "That player is no longer in the lobby.");
+        }
+
+        target.send("kicked", { message: "The host removed you from the lobby." });
+        target.leave(CloseCode.CONSENTED, "Removed by the lobby host.");
     }
 
     private async handleStart(client: LobbyClient) {

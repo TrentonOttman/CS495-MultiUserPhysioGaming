@@ -175,6 +175,35 @@
             color: inherit;
         }
 
+        .waiting-actions {
+            display: flex;
+            gap: .75rem;
+            margin-top: 1rem;
+        }
+
+        .waiting-actions button {
+            width: auto;
+        }
+
+        #lobby-start:not([hidden]) {
+            flex: 1;
+        }
+
+        #lobby-leave {
+            flex: 0 0 auto;
+            border-color: #8885;
+            color: inherit;
+        }
+
+        .waiting-actions.is-guest #lobby-leave {
+            width: 100%;
+        }
+
+        #lobby-leave:hover {
+            border-color: #d94b62;
+            color: #d94b62;
+        }
+
         .primary-button:hover,
         .secondary-button:hover {
             filter: brightness(1.1);
@@ -339,7 +368,7 @@
         /* Waiting room */
 
         .waiting-room {
-            max-width: 32rem;
+            max-width: 48rem;
             margin: 0 auto;
         }
 
@@ -370,23 +399,54 @@
             border-radius: 999px;
         }
 
+        .waiting-summary-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin: .5rem 0 1.25rem;
+        }
+
         .waiting-summary {
+            min-width: 0;
+            margin: 0;
             opacity: .7;
         }
 
-        .join-code-container {
+        .waiting-role {
+            flex: 0 0 auto;
+            margin: 0;
+            font-size: .9rem;
+            opacity: .7;
+            text-align: right;
+        }
+
+        .waiting-content {
+            display: grid;
+            grid-template-columns: minmax(12rem, .85fr) minmax(16rem, 1.15fr);
+            gap: 1rem;
+            align-items: stretch;
+            min-height: 0;
+        }
+
+        .roster-panel {
+            border: 1px solid #8884;
+            border-radius: .6rem;
+            padding: 1rem;
+        }
+
+        .waiting-details {
             display: flex;
             flex-direction: column;
             align-items: center;
-
-            margin: 1.5rem 0;
+            justify-content: center;
+            margin: 0;
             padding: 1rem;
-
             border: 1px dashed #8887;
             border-radius: .6rem;
         }
 
-        .join-code-container span {
+        .waiting-details > span {
             font-size: .7rem;
             font-weight: 700;
             letter-spacing: .1em;
@@ -395,9 +455,110 @@
 
         #waiting-code {
             margin-top: .25rem;
-
             font-size: 1.8rem;
             letter-spacing: .15em;
+        }
+
+        .roster-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+            margin-bottom: .75rem;
+        }
+
+        .roster-heading h3 {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .roster-count {
+            border-radius: 999px;
+            padding: .15rem .55rem;
+            background: #8882;
+            font-size: .8rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .waiting-players {
+            display: grid;
+            gap: .5rem;
+            list-style: none;
+            margin: 0;
+            max-height: 22rem;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            padding: 0;
+            padding-right: .25rem;
+        }
+
+        .roster-player {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            min-width: 0;
+            border: 1px solid #8883;
+            border-radius: .5rem;
+            padding: .55rem .65rem;
+        }
+
+        .roster-identity {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+            flex: 1;
+            min-width: 0;
+            width: auto;
+        }
+
+        .roster-identity strong {
+            min-width: 0;
+            overflow-wrap: anywhere;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: .82rem;
+            font-weight: 500;
+            font-variant-ligatures: none;
+        }
+
+        .roster-tags {
+            display: flex;
+            gap: .35rem;
+            flex: 0 0 auto;
+        }
+
+        .roster-tag {
+            border-radius: 999px;
+            padding: .1rem .45rem;
+            font-size: .7rem;
+            font-weight: 600;
+        }
+
+        .host-tag {
+            background: #4ea1ff24;
+            color: #4ea1ff;
+        }
+
+        .you-tag {
+            background: #8882;
+        }
+
+        .roster-kick-button {
+            flex: 0 0 auto;
+            border: 1px solid #d94b6255;
+            border-radius: .4rem;
+            padding: .3rem .55rem;
+            background: transparent;
+            color: #d94b62;
+            font: inherit;
+            font-size: .75rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .roster-kick-button:hover {
+            background: #d94b6218;
+            border-color: #d94b62;
         }
 
         #lobby-error {
@@ -409,6 +570,13 @@
 
             color: #d94b62;
             font-weight: 600;
+        }
+
+        #lobby-error.is-notice {
+            border-color: #4ea1ff66;
+            background: #4ea1ff12;
+            color: inherit;
+            font-weight: 500;
         }
 
         #lobby [hidden] {
@@ -423,6 +591,20 @@
             .form-row,
             .join-card {
                 grid-template-columns: 1fr;
+            }
+
+            .waiting-content {
+                grid-template-columns: 1fr;
+            }
+
+            .waiting-summary-row {
+                align-items: flex-start;
+                flex-direction: column;
+                gap: .5rem;
+            }
+
+            .waiting-role {
+                align-self: flex-end;
             }
         }
 

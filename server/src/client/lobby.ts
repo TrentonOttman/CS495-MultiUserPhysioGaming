@@ -45,6 +45,7 @@ export interface LobbyScreenCallbacks {
      * explanation.
      */
     onJoinListed(roomId: string): Promise<void>;
+    onLeaveLobby(): void;
 }
 
 export interface LobbyScreen {
@@ -57,11 +58,14 @@ export interface LobbyScreen {
      * `onCreate` has resolved.
      */
     onStart: (() => void) | null;
+    onKick: ((sessionId: string) => void) | null;
     setBusy(busy: boolean): void;
     showError(message: string): void;
+    showNotice(message: string): void;
     clearError(): void;
     /** Releases the browser's polling, for when this screen leaves the page. */
     stop(): void;
+    exitLobby(): void;
 }
 
 export interface LobbyView {
@@ -71,6 +75,9 @@ export interface LobbyView {
     gameId: string;
     joinCode: string;
     memberCount: number;
+    playerIds: string[];
+    hostId: string;
+    localPlayerId: string;
     isHost: boolean;
     status: string;
 }
@@ -191,21 +198,35 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
                     <h2 id="waiting-name">Lobby</h2>
                 </div>
 
-                <span class="status-badge">Waiting</span>
+                <span id="waiting-status" class="status-badge">Waiting</span>
             </div>
 
-            <p id="waiting-summary" class="waiting-summary"></p>
-
-            <div class="join-code-container">
-                <span>JOIN CODE</span>
-                <strong id="waiting-code"></strong>
+            <div class="waiting-summary-row">
+                <p id="waiting-summary" class="waiting-summary"></p>
+                <p id="waiting-role" class="waiting-role"></p>
             </div>
 
-            <p id="waiting-role"></p>
+            <div class="waiting-content">
+                <div class="join-code-container waiting-details">
+                    <span>JOIN CODE</span>
+                    <strong id="waiting-code"></strong>
+                </div>
 
-            <button id="lobby-start" class="primary-button" hidden>
-                Start Game
-            </button>
+                <section class="roster-panel" aria-labelledby="waiting-roster-title">
+                    <div class="roster-heading">
+                        <h3 id="waiting-roster-title">Players</h3>
+                        <span id="waiting-roster-count" class="roster-count"></span>
+                    </div>
+                    <ul id="waiting-players" class="waiting-players"></ul>
+                </section>
+            </div>
+
+            <div class="waiting-actions">
+                <button id="lobby-start" class="primary-button" hidden>
+                    Start Game
+                </button>
+                <button id="lobby-leave" class="secondary-button">Leave Lobby</button>
+            </div>
         </div>
 
     `;
@@ -214,6 +235,8 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
     const waiting = element.querySelector<HTMLElement>("#lobby-waiting")!;
     const error = element.querySelector<HTMLElement>("#lobby-error")!;
     const startButton = element.querySelector<HTMLButtonElement>("#lobby-start")!;
+    const leaveButton = element.querySelector<HTMLButtonElement>("#lobby-leave")!;
+    const actions = element.querySelector<HTMLElement>(".waiting-actions")!;
     const joinForm = element.querySelector<HTMLFormElement>("#join-form")!;
     const joinRow = element.querySelector<HTMLElement>(".lobby-join-row")!;
     const gameSelect = element.querySelector<HTMLSelectElement>("#lobby-game")!;
@@ -224,6 +247,7 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
     const browser = createLobbyBrowser({
         onJoin: (roomId) => callbacks.onJoinListed(roomId),
         onError: showError,
+        onNotice: showNotice,
     });
     joinRow.parentElement!.insertBefore(browser.element, joinRow);
 
@@ -290,7 +314,9 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
 
     // Assigned after construction, once the caller has a room to send on.
     let onStart: (() => void) | null = null;
+    let onKick: ((sessionId: string) => void) | null = null;
     startButton.addEventListener("click", () => onStart?.());
+    leaveButton.addEventListener("click", () => callbacks.onLeaveLobby());
 
     function setBusy(busy: boolean) {
         for (const control of element.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("input, select, button")) {
@@ -305,11 +331,22 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
 
     function showError(message: string) {
         error.textContent = message;
+        error.classList.remove("is-notice");
+        error.setAttribute("role", "alert");
+        error.hidden = false;
+    }
+
+    function showNotice(message: string) {
+        error.textContent = message;
+        error.classList.add("is-notice");
+        error.setAttribute("role", "status");
         error.hidden = false;
     }
 
     function clearError() {
         error.textContent = "";
+        error.classList.remove("is-notice");
+        error.setAttribute("role", "alert");
         error.hidden = true;
     }
 
@@ -320,10 +357,51 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
         waiting.hidden = false;
 
         element.querySelector("#waiting-name")!.textContent = view.lobbyName || "Unnamed lobby";
+        element.querySelector("#waiting-status")!.textContent = view.status === "starting" ? "Starting" : "Waiting";
         element.querySelector("#waiting-summary")!.textContent =
             `${view.memberCount} of ${view.maxPlayers} players · ${view.isPrivate ? "private" : "public"}`
             + ` · ${GAME_REGISTRY[view.gameId as GameId]?.label ?? view.gameId}`;
         element.querySelector("#waiting-code")!.textContent = view.joinCode;
+        element.querySelector("#waiting-roster-count")!.textContent = `${view.memberCount}/${view.maxPlayers}`;
+        const players = element.querySelector<HTMLUListElement>("#waiting-players")!;
+        players.replaceChildren(...view.playerIds.map((sessionId) => {
+            const item = document.createElement("li");
+            item.className = "roster-player";
+            const identity = document.createElement("span");
+            identity.className = "roster-identity";
+            const name = document.createElement("strong");
+            name.textContent = sessionId;
+            identity.append(name);
+            const isHost = sessionId === view.hostId;
+            if (isHost || sessionId === view.localPlayerId) {
+                const tags = document.createElement("span");
+                tags.className = "roster-tags";
+                if (isHost) {
+                    const hostTag = document.createElement("span");
+                    hostTag.className = "roster-tag host-tag";
+                    hostTag.textContent = "Host";
+                    tags.append(hostTag);
+                }
+                if (sessionId === view.localPlayerId) {
+                    const youTag = document.createElement("span");
+                    youTag.className = "roster-tag you-tag";
+                    youTag.textContent = "You";
+                    tags.append(youTag);
+                }
+                identity.append(tags);
+            }
+            item.append(identity);
+            if (view.isHost && !isHost && view.status === "configuring") {
+                const kickButton = document.createElement("button");
+                kickButton.type = "button";
+                kickButton.className = "roster-kick-button";
+                kickButton.textContent = "Kick";
+                kickButton.title = `Remove player ${sessionId} from this lobby`;
+                kickButton.addEventListener("click", () => onKick?.(sessionId));
+                item.append(kickButton);
+            }
+            return item;
+        }));
         element.querySelector("#waiting-role")!.textContent = view.isHost
             ? "You are the host."
             : "Waiting for the host to start…";
@@ -331,6 +409,7 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
         const minimum = GAME_REGISTRY[view.gameId as GameId]?.minPlayers ?? 1;
         const needsMorePlayers = view.memberCount < minimum;
         startButton.hidden = !view.isHost || view.status !== "configuring";
+        actions.classList.toggle("is-guest", !view.isHost);
         startButton.disabled = needsMorePlayers;
         startButton.textContent = needsMorePlayers
             ? `Waiting for players (${view.memberCount}/${minimum})`
@@ -340,14 +419,25 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
             : "";
     }
 
+    function exitLobby() {
+        waiting.hidden = true;
+        form.hidden = false;
+        joinRow.hidden = false;
+        browser.element.hidden = false;
+    }
+
     return {
         element,
         renderLobby,
         setBusy,
         showError,
+        showNotice,
         clearError,
         stop() { browser.stop(); },
+        exitLobby,
         get onStart() { return onStart; },
         set onStart(handler: (() => void) | null) { onStart = handler; },
+        get onKick() { return onKick; },
+        set onKick(handler: ((sessionId: string) => void) | null) { onKick = handler; },
     };
 }

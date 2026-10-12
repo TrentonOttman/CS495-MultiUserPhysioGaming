@@ -21,6 +21,7 @@ export const LobbyState = schema({
     gameId: t.string().default(""),
     hostId: t.string().default(""),
     joinCode: t.string().default(""),
+    playerIds: t.array("string"),
     memberCount: t.number().default(0),
     status: t.string<LobbyStatus>().default("configuring"),
 }, "LobbyState");

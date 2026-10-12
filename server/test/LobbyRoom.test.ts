@@ -12,13 +12,11 @@ import { resolveJoinCode } from "../src/lobby/joinCodeIndex.js";
 import type { PublicLobbySummary } from "../src/lobby/publicLobbyListing.js";
 
 /**
- * Covers the lobby-configuration PBI: creating a lobby, naming it, choosing a
- * size and visibility, the room that gets created, host identity, and the
- * rejection of invalid configurations.
+ * Covers the lobby waiting-room and host-start PBIs: replicated membership,
+ * host identity and controls, capacity, start validation, and transition state.
  *
  * Also covers public discovery — the listing the public lobby browser polls —
- * and the join-code paths. Host transfer is still not asserted; it belongs to a
- * later PBI.
+ * and the join-code paths.
  */
 describe("session_lobby", () => {
     let colyseus: ColyseusTestServer<typeof appConfig>;
@@ -73,6 +71,131 @@ describe("session_lobby", () => {
                 () => colyseus.createRoom("session_lobby", { gameId: "not-a-game" }),
                 /Unknown game/,
             );
+        });
+    });
+
+    describe("synchronized membership", () => {
+        it("replicates the roster and count to every client as players join and leave", async () => {
+            const { room, client: host } = await createLobby({ gameId: "physio_park" });
+            host.send("configure", {
+                name: "Roster Room",
+                maxPlayers: 4,
+                isPrivate: false,
+            });
+            await room.waitForNextPatch();
+
+            const hostJoinPatch = host.waitForNextPatch();
+            const firstGuest = await colyseus.connectTo(room);
+            await hostJoinPatch;
+
+            const hostNextPatch = host.waitForNextPatch();
+            const firstGuestNextPatch = firstGuest.waitForNextPatch();
+            const secondGuest = await colyseus.connectTo(room);
+            await Promise.all([hostNextPatch, firstGuestNextPatch]);
+
+            const expectedIds = [host.sessionId, firstGuest.sessionId, secondGuest.sessionId];
+            assert.deepStrictEqual(Array.from(room.state.playerIds), expectedIds);
+            assert.strictEqual(room.state.memberCount, expectedIds.length);
+            for (const client of [host, firstGuest, secondGuest]) {
+                assert.deepStrictEqual(Array.from(client.state.playerIds), expectedIds);
+                assert.strictEqual(client.state.memberCount, expectedIds.length);
+                assert.strictEqual(client.state.hostId, host.sessionId);
+            }
+
+            const hostLeavePatch = host.waitForNextPatch();
+            const secondGuestLeavePatch = secondGuest.waitForNextPatch();
+            await firstGuest.leave();
+            await Promise.all([hostLeavePatch, secondGuestLeavePatch]);
+
+            const remainingIds = [host.sessionId, secondGuest.sessionId];
+            assert.deepStrictEqual(Array.from(room.state.playerIds), remainingIds);
+            assert.strictEqual(room.state.memberCount, remainingIds.length);
+            for (const client of [host, secondGuest]) {
+                assert.deepStrictEqual(Array.from(client.state.playerIds), remainingIds);
+                assert.strictEqual(client.state.memberCount, remainingIds.length);
+            }
+        });
+
+        it("does not admit players beyond the configured capacity", async () => {
+            const { room, client: host } = await createLobby({ gameId: "physio_park" });
+            host.send("configure", {
+                name: "Capacity Room",
+                maxPlayers: 3,
+                isPrivate: false,
+            });
+            await room.waitForNextPatch();
+
+            await colyseus.connectTo(room);
+            await colyseus.connectTo(room);
+
+            assert.strictEqual(room.maxClients, 3);
+            assert.strictEqual(room.state.memberCount, 3);
+            await assert.rejects(() => colyseus.connectTo(room), /full|locked|available|seat/i);
+            assert.strictEqual(room.state.memberCount, 3);
+            assert.strictEqual(room.state.playerIds.length, 3);
+        });
+
+        it("keeps an unexpectedly dropped player seated during the reconnection window", async () => {
+            const { room, client: host } = await createLobby();
+            const guest = await colyseus.connectTo(room);
+            host.reconnection.enabled = false;
+
+            await host.leave(false);
+            // Give the server's socket-close handler a chance to move the seat
+            // into Colyseus' 30-second reconnection hold.
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
+            assert.strictEqual(room.state.memberCount, 2);
+            assert.deepStrictEqual(Array.from(room.state.playerIds), [host.sessionId, guest.sessionId]);
+            assert.strictEqual(room.state.hostId, host.sessionId, "a dropped host keeps the host role while reconnecting");
+        });
+
+        it("promotes the next player after a dropped host's reconnection window expires", async () => {
+            const { room, client: host } = await createLobby();
+            const guest = await colyseus.connectTo(room);
+            const allowReconnection = room.allowReconnection.bind(room);
+            room.allowReconnection = (client) => allowReconnection(client, 0.05);
+            host.reconnection.enabled = false;
+
+            await host.leave(false);
+
+            // A dropped client remains a member until Colyseus' reconnection
+            // timeout expires. Wait for that server-side lifecycle callback,
+            // rather than merely the next patch (which may be unrelated).
+            const deadline = Date.now() + 2_000;
+            while (
+                (room.state.memberCount !== 1 || guest.state.memberCount !== 1) &&
+                Date.now() < deadline
+            ) {
+                await new Promise((resolve) => setTimeout(resolve, 20));
+            }
+
+            assert.strictEqual(room.state.memberCount, 1);
+            assert.deepStrictEqual(Array.from(room.state.playerIds), [guest.sessionId]);
+            assert.strictEqual(room.state.hostId, guest.sessionId);
+            assert.deepStrictEqual(Array.from(guest.state.playerIds), [guest.sessionId]);
+            assert.strictEqual(guest.state.hostId, guest.sessionId);
+        });
+
+        it("allows only the host to kick a player and replicates the removal", async () => {
+            const { room, client: host } = await createLobby();
+            const guest = await colyseus.connectTo(room);
+
+            guest.send("kick", { sessionId: host.sessionId });
+            const rejected = await guest.waitForMessage("error");
+            assert.match(rejected.error, /host/);
+            assert.strictEqual(room.state.memberCount, 2);
+
+            const hostPatch = host.waitForNextPatch();
+            const removed = guest.waitForMessage("kicked");
+            host.send("kick", { sessionId: guest.sessionId });
+            const message = await removed;
+            await hostPatch;
+
+            assert.match(message.message, /removed/i);
+            assert.deepStrictEqual(Array.from(room.state.playerIds), [host.sessionId]);
+            assert.strictEqual(room.state.memberCount, 1);
+            assert.strictEqual(host.state.memberCount, 1);
         });
     });
 
@@ -239,10 +362,20 @@ describe("session_lobby", () => {
             const { room, client } = await createLobby();
             client.send("configure", { ...validConfig, maxPlayers: size });
             await room.waitForNextPatch();
-            await colyseus.connectTo(room);
+            const guest = await colyseus.connectTo(room);
 
+            const hostStatusPatch = client.waitForNextPatch();
+            const guestStatusPatch = guest.waitForNextPatch();
+            const hostReady = client.waitForMessage("gameReady");
+            const guestReady = guest.waitForMessage("gameReady");
             client.send("start");
-            const ready = await client.waitForMessage("gameReady");
+            const [ready, guestReadyPayload] = await Promise.all([hostReady, guestReady]);
+            await Promise.all([hostStatusPatch, guestStatusPatch]);
+
+            assert.strictEqual(ready.roomId, guestReadyPayload.roomId, "all lobby members receive the same game room");
+            assert.strictEqual(room.state.status, "starting");
+            assert.strictEqual(client.state.status, "starting");
+            assert.strictEqual(guest.state.status, "starting");
 
             const game = colyseus.getRoomById<PongRoom>(ready.roomId);
             assert.ok(game, "the game room exists");
@@ -274,6 +407,22 @@ describe("session_lobby", () => {
 
             assert.strictEqual(getGameRoomName("pong"), "pong_room");
             assert.ok(colyseus.getRoomById(ready.roomId), `a room exists for ${ready.roomId}`);
+        });
+
+        it("rejects joins after the host starts the game", async () => {
+            const { room, client } = await createLobby();
+            client.send("configure", validConfig);
+            await room.waitForNextPatch();
+            const guest = await colyseus.connectTo(room);
+
+            const hostReady = client.waitForMessage("gameReady");
+            const guestReady = guest.waitForMessage("gameReady");
+            client.send("start");
+            const [hostPayload, guestPayload] = await Promise.all([hostReady, guestReady]);
+            assert.strictEqual(hostPayload.roomId, guestPayload.roomId);
+
+            await assert.rejects(() => colyseus.connectTo(room), /locked|full|available|seat/i);
+            assert.strictEqual(room.state.status, "starting");
         });
 
         it("refuses to start from a non-host", async () => {

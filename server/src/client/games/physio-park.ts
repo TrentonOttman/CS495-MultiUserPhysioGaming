@@ -33,7 +33,7 @@ export class GameScene extends Phaser.Scene {
 
     preload() {
         // preload scene
-        this.load.image('ship_0001', 'https://cdn.jsdelivr.net/gh/colyseus/tutorial-phaser@master/client/dist/assets/ship_0001.png');
+        this.load.image('robo_pico', 'assets/RoboPico1.png');
     }
 
     async create() {
@@ -49,7 +49,7 @@ export class GameScene extends Phaser.Scene {
         callbacks.onAdd("players", (player: Player, sessionId: string) => {
             console.log("A player has joined! Their unique session id is", sessionId);
 
-            const entity = this.physics.add.image(player.x, player.y, 'ship_0001');
+            const entity = this.physics.add.image(player.x, player.y, 'robo_pico');
             this.playerEntities[sessionId] = entity;
 
             callbacks.onChange(player, () => {

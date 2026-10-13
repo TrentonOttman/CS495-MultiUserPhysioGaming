@@ -96,6 +96,7 @@ showRejoinButton();
 const client = new ColyseusSDK<typeof server>(
     `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`
 );
+let activeLobbyRoom: Room<SessionLobby, LobbyState> | null = null;
 
 
 
@@ -172,18 +173,30 @@ async function joinLobbyById(roomId: string) {
  * the game.
  */
 async function attachToLobby(room: Room<SessionLobby, LobbyState>) {
+    activeLobbyRoom = room;
     lobbyScreen.clearError();
+    let transitioningToGame = false;
 
     // `start` is host-only server-side; the button is hidden for guests, and the
     // room refuses it regardless, so this is safe to leave wired for everyone.
     lobbyScreen.onStart = () => room.send("start");
+    lobbyScreen.onKick = (sessionId) => room.send("kick", { sessionId });
 
     room.onMessage("error", (payload) => {
         lobbyScreen.clearError();
         lobbyScreen.showError(payload.error);
     });
 
+    room.onMessage("kicked", ({ message }) => {
+        transitioningToGame = true;
+        activeLobbyRoom = null;
+        lobbyScreen.exitLobby();
+        lobbyScreen.showNotice(message);
+        statusEl.textContent = "Removed from the lobby";
+    });
+
     room.onMessage("gameReady", async ({ roomId }) => {
+        transitioningToGame = true;
         try {
             const gameId = room.state.gameId as GameId;
             await room.leave();
@@ -197,12 +210,15 @@ async function attachToLobby(room: Room<SessionLobby, LobbyState>) {
     room.onLeave(() => {
         // Leaving the lobby is what happens when the game starts, so this is
         // not a disconnection.
-        if (gameEl.hidden) { statusEl.textContent = "Left the lobby"; }
+        if (gameEl.hidden && !transitioningToGame) {
+            lobbyScreen.exitLobby();
+            statusEl.textContent = "Left the lobby";
+        }
     });
 
     // Any patch can carry config, roster, host or code changes, so the screen is
     // redrawn from state rather than only in response to the events that caused it.
-    room.onStateChange(() => {
+    const renderState = () => {
         const state = room.state;
         lobbyScreen.renderLobby({
             lobbyName: state.lobbyName,
@@ -211,10 +227,21 @@ async function attachToLobby(room: Room<SessionLobby, LobbyState>) {
             gameId: state.gameId,
             joinCode: state.joinCode,
             memberCount: state.memberCount,
+            // Collection fields can be absent from a client's decoded state
+            // until their first server patch. Treat that initial gap as empty;
+            // the roster patch will redraw the view once it arrives.
+            playerIds: Array.from(state.playerIds ?? []),
+            hostId: state.hostId,
+            localPlayerId: room.sessionId,
             isHost: state.hostId === room.sessionId,
             status: state.status,
         });
-    });
+    };
+    room.onStateChange(renderState);
+    // The initial state may already have arrived before attachToLobby runs.
+    // Render it now as well as on future server patches so every join path
+    // immediately lands in the waiting room.
+    renderState();
 }
 
 /**
@@ -273,6 +300,12 @@ const lobbyScreen = createLobbyScreen({
         }
     },
     onJoinListed: (roomId) => joinLobbyById(roomId),
+    onLeaveLobby: () => {
+        void activeLobbyRoom?.leave();
+        activeLobbyRoom = null;
+        lobbyScreen.exitLobby();
+        statusEl.textContent = "Left the lobby";
+    },
 });
 
 appEl.prepend(lobbyScreen.element);

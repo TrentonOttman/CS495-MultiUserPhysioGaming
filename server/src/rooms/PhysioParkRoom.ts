@@ -3,6 +3,7 @@ import { stepEntity } from "../shared/movement.js";
 import { TICK_RATE, ARENA_WIDTH, ARENA_HEIGHT } from "../shared/constants.js";
 import { LobbyCapableRoom } from "./base/LobbyCapableRoom.js";
 import { PhysioParkState, Player, MoveInput } from "./schema/PhysioParkState.js";
+import { setupRoom } from "./roomSetup.ts";
 
 export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput> {
     maxClients = 8;
@@ -61,10 +62,10 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         }));
     }
 
-    onLeave(client: Client, code: CloseCode) {
-        console.log(client.sessionId, "left!", code);
-        this.state.players.delete(client.sessionId);
-    }
+    // onLeave(client: Client, code: CloseCode) {
+    //     console.log(client.sessionId, "left!", code);
+    //     this.state.players.delete(client.sessionId);
+    // }
 
     onDispose() {
         console.log("room", this.roomId, "disposing...");
@@ -91,15 +92,15 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
      * suspended tab, a tunnel change. Holding the seat lets the SDK retry into the
      * same session, so the player keeps their entity and their place in the room.
      */
-    onDrop(client: Client, code: CloseCode) {
-        // Deliberately not awaited: the framework routes the outcome to onReconnect()
-        // or onLeave() by itself. The catch is only here because the promise also
-        // rejects when the room is already disposing (server shutdown), which would
-        // otherwise surface as an unhandled rejection.
-        this.allowReconnection(client, 10).catch(() => { });
-    }
+    // onDrop(client: Client, code: CloseCode) {
+    //     // Deliberately not awaited: the framework routes the outcome to onReconnect()
+    //     // or onLeave() by itself. The catch is only here because the promise also
+    //     // rejects when the room is already disposing (server shutdown), which would
+    //     // otherwise surface as an unhandled rejection.
+    //     this.allowReconnection(client, 10).catch(() => { });
+    // }
 
-    onReconnect(client: Client) {
-        console.log(client.sessionId, "reconnected!");
-    }
+    // onReconnect(client: Client) {
+    //     console.log(client.sessionId, "reconnected!");
+    // }
 }

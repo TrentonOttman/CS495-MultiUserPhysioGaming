@@ -3,6 +3,7 @@ import { Room, Callbacks, type ColyseusSDK } from "@colyseus/sdk";
 import { PhysioParkRoom } from "../../rooms/PhysioParkRoom";
 import type { default as server } from "../../app.config.js";
 import { Player } from "../../rooms/schema/PhysioParkState.js";
+import { RESOLUTION_X, RESOLUTION_Y } from "../../shared/physioParkConstants.js";
 
 // custom scene class
 export class GameScene extends Phaser.Scene {
@@ -43,7 +44,7 @@ export class GameScene extends Phaser.Scene {
         this.keyA = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
         this.keyS = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
         this.keyD = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
-        
+
         const callbacks = Callbacks.get(this.room);
 
         callbacks.onAdd("players", (player: Player, sessionId: string) => {
@@ -78,7 +79,7 @@ export class GameScene extends Phaser.Scene {
         // send input to the server
         this.inputPayload.left = this.cursorKeys.left.isDown || this.keyA.isDown;
         this.inputPayload.right = this.cursorKeys.right.isDown || this.keyD.isDown;
-        this.inputPayload.up = this.cursorKeys.up.isDown || this.keyW.isDown; 
+        this.inputPayload.up = this.cursorKeys.up.isDown || this.keyW.isDown;
         this.inputPayload.down = this.cursorKeys.down.isDown || this.keyS.isDown;
         this.room.send(0, this.inputPayload);
     }
@@ -90,12 +91,16 @@ export async function startPhysioPark(client: ColyseusSDK<typeof server>, roomId
     // game config
     const config: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
-        width: 800,
-        height: 600,
+        width: RESOLUTION_X,
+        height: RESOLUTION_Y,
         backgroundColor: '#b6d53c',
         parent: 'phaser-example',
         physics: { default: "arcade" },
         pixelArt: true,
+        scale: {
+            mode: Phaser.Scale.FIT,
+            autoCenter: Phaser.Scale.CENTER_HORIZONTALLY
+        },
         scene: [new GameScene(client, room)],
     };
 

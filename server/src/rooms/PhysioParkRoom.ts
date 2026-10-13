@@ -1,6 +1,6 @@
 import { Room, Client, CloseCode, type StepContext } from "colyseus";
 import { stepEntity } from "../shared/movement.js";
-import { TICK_RATE, ARENA_WIDTH, ARENA_HEIGHT } from "../shared/constants.js";
+import { TICK_RATE, RESOLUTION_X, RESOLUTION_Y } from "../shared/physioParkConstants.js";
 import { LobbyCapableRoom } from "./base/LobbyCapableRoom.js";
 import { PhysioParkState, Player, MoveInput } from "./schema/PhysioParkState.js";
 
@@ -54,8 +54,8 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         // Deterministic spawn ring, so two players never start on top of each other.
         const angle = this.joinCount++ * 2.399963;
         this.state.players.set(client.sessionId, new Player({
-            x: ARENA_WIDTH / 2 + Math.cos(angle) * 80,
-            y: ARENA_HEIGHT / 2 + Math.sin(angle) * 80,
+            x: RESOLUTION_X / 2 + Math.cos(angle) * 80,
+            y: RESOLUTION_Y / 2 + Math.sin(angle) * 80,
             vx: 0,
             vy: 0,
         }));

@@ -125,7 +125,7 @@ export class LobbyRoom extends Room<{
             this.state.maxPlayers = result.config.maxPlayers;
             this.state.isPrivate = result.config.isPrivate;
             this.maxClients = result.config.maxPlayers;
-            await this.setMetadata(toLobbyMetadata(result.config));
+            await this.setMatchmaking({ metadata: toLobbyMetadata(result.config), private: result.config.isPrivate, maxClients: result.config.maxPlayers });
         }
 
         // A code is minted per lobby regardless of visibility, so flipping a
@@ -195,6 +195,7 @@ export class LobbyRoom extends Room<{
      */
     protected async authorizeJoin(client: LobbyClient, options: any): Promise<boolean> {
         if (!this.state.isPrivate) { return true; }
+        if (this.members.length === 0) { return true; }
         return isRoomJoinCode(options?.joinCode, this.roomId);
     }
 
@@ -257,7 +258,7 @@ export class LobbyRoom extends Room<{
      */
     private async publicNameTaken(config: LobbyConfig): Promise<boolean> {
         if (config.isPrivate) { return false; }
-        const rooms = await matchMaker.query({ name: "session_lobby", lobbyName: config.name });
+        const rooms = await matchMaker.query({ name: "session_lobby", lobbyName: config.name, private: false });
         return rooms.some((room) => room.roomId !== this.roomId);
     }
 

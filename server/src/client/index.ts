@@ -13,6 +13,8 @@ const arenaEl = document.getElementById("arena")!;
 const gameEl = document.getElementById("game")!;
 const appEl = document.getElementById("app")!;
 const scoreEl = document.getElementById("score")!;
+const titleEl = document.getElementById("game-title")!;
+const helpEl = document.getElementById("game-help")!;
 
 const client = new ColyseusSDK<typeof server>(
     `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`
@@ -153,7 +155,9 @@ async function enterGame(gameId: GameId, roomId: string) {
             break;
 
         case "physio_park":
-            await startPhysioPark(client, roomId);
+            await startPhysioPark(client, roomId, {
+                game: gameEl, arena: arenaEl, score: scoreEl, status: statusEl, title: titleEl, help: helpEl,
+            });
             break;
 
         default:

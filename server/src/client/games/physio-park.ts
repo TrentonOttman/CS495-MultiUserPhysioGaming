@@ -5,6 +5,7 @@ import type { PhysioParkRoom } from "../../rooms/PhysioParkRoom.js";
 import type { MoveInput, Player } from "../../rooms/schema/PhysioParkState.js";
 import { PLAYER_WIDTH, PLAYER_HEIGHT } from "../../shared/platformerConstants.js";
 import { LEVEL_WIDTH, LEVEL_HEIGHT, SOLIDS, LAVA, GOAL } from "../../shared/physioParkLevel.js";
+import { setupRoom } from "./roomSetup.ts";
 
 export interface PhysioParkElements {
     game: HTMLElement;
@@ -152,19 +153,22 @@ class PhysioParkScene extends Phaser.Scene {
  */
 export async function startPhysioPark(
     client: ColyseusSDK<typeof server>,
-    roomId: string,
+    roomOrId: string | Room<PhysioParkRoom>,
     elements: PhysioParkElements,
 ) {
     const { game, arena, score, status, title, help } = elements;
-    const room = await client.joinById<PhysioParkRoom>(roomId);
+
+    // A string is a normal game start; a room is a rejoin via client.reconnect().
+    let room = typeof roomOrId === "string"
+        ? await client.joinById<PhysioParkRoom>(roomOrId)
+        : roomOrId;
+    room = setupRoom(room as any, "physio_park") as any;
 
     game.hidden = false;
     title.textContent = "Physio Park";
     score.hidden = true;
     help.textContent = "Move with A/D or ←/→. Jump with W, ↑ or Space. Stack on each other to reach the flag!";
     status.textContent = `Connected as ${room.sessionId}`;
-
-    room.onLeave(() => { status.textContent = "Disconnected"; });
 
     new Phaser.Game({
         type: Phaser.AUTO,

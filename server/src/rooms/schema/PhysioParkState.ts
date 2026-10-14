@@ -26,6 +26,8 @@ export const Player = schema({
     grounded: t.boolean(),
     /** Index into the client's color list, assigned on join. */
     color: t.uint8(),
+    /** False while the player's connection has dropped and their seat is held. */
+    connected: t.boolean().default(true),
 });
 export type Player = SchemaType<typeof Player>;
 

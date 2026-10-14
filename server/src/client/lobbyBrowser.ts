@@ -51,6 +51,8 @@ export interface LobbyBrowserCallbacks {
     onJoin(roomId: string): void | Promise<void>;
     /** Displays a failed join in the lobby screen's shared error area. */
     onError(message: string): void;
+    /** Displays an expected, non-error outcome such as a race to the last seat. */
+    onNotice(message: string): void;
 }
 
 export interface LobbyBrowser {
@@ -303,7 +305,11 @@ export function createLobbyBrowser(callbacks: LobbyBrowserCallbacks): LobbyBrows
             await refresh();
 
             const current = failed ? undefined : latest.find((other) => other.roomId === lobby.roomId);
-            callbacks.onError(current !== undefined && isFull(current) ? FULL_MESSAGE : GONE_MESSAGE);
+            if (current !== undefined && isFull(current)) {
+                callbacks.onNotice(FULL_MESSAGE);
+            } else {
+                callbacks.onError(GONE_MESSAGE);
+            }
         } finally {
             joining.delete(lobby.roomId);
             render();

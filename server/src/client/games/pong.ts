@@ -4,6 +4,8 @@ import type { default as server } from "../../app.config.js";
 import type { MoveInput } from "../../rooms/schema/PongState.js";
 import type { PongRoom } from "../../rooms/PongRoom.js";
 import { stepEntity } from "../../shared/movement.js";
+import { setupRoom } from "./roomSetup.ts";
+import { Room } from "colyseus";
 
 export interface PongElements {
     game: HTMLElement;
@@ -18,9 +20,19 @@ export interface PongElements {
  * The application owns the Colyseus client and decides which game to launch.
  * Pong owns everything specific to playing and rendering Pong.
  */
-export async function startPong(client: ColyseusSDK<typeof server>, roomId: string, elements: PongElements) {
+export async function startPong(client: ColyseusSDK<typeof server>, roomOrId: string | Room<PongRoom["state"]>, elements: PongElements) {
     const { game, arena, score, status } = elements;
-    const room = await client.joinById<PongRoom>(roomId);
+
+    let room: Room<PongRoom["state"]>;
+
+    if (typeof roomOrId === "string") {
+        room = await client.joinById<PongRoom>(roomOrId);
+    } else {
+        room = roomOrId;
+    }
+
+    room = setupRoom(room, "pong");
+    
     const predict = Predict.get(room);
 
     const held = new Set<string>();

@@ -1,4 +1,4 @@
-import { Client, CloseCode, type StepContext } from "colyseus";
+import { Client, type StepContext } from "colyseus";
 import { LobbyCapableRoom } from "./base/LobbyCapableRoom.js";
 import { PhysioParkState, Player, MoveInput } from "./schema/PhysioParkState.js";
 import { stepAllPlayers, type PlatformerPlayer } from "../shared/platformerMovement.js";
@@ -61,10 +61,14 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         }));
     }
 
-    onLeave(client: Client, code: CloseCode) {
-        console.log(client.sessionId, "left!", code);
-        this.state.players.delete(client.sessionId);
+    /**
+     * Disconnect handling (holding a dropped player's seat, removing them once
+     * the window passes, ending the match when too few remain) lives in
+     * `LobbyCapableRoom`. This only forgets the player's spawn slot.
+     */
+    onLeave(client: Client, code: number) {
         this.spawnIndex.delete(client.sessionId);
+        super.onLeave(client, code);
     }
 
     onDispose() {
@@ -124,21 +128,6 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
                 this.state.goalReached = true;
             }
         }
-    }
-
-    /**
-     * Called on any disconnection the client did not ask for — a network blip, a
-     * suspended tab. Holding the seat lets the SDK retry into the same session,
-     * so the player keeps their character and their place in the room.
-     */
-    onDrop(client: Client, code: CloseCode) {
-        // Not awaited: the framework routes the outcome to onReconnect() or
-        // onLeave() by itself. The catch covers a room already disposing.
-        this.allowReconnection(client, 10).catch(() => { });
-    }
-
-    onReconnect(client: Client) {
-        console.log(client.sessionId, "reconnected!");
     }
 }
 

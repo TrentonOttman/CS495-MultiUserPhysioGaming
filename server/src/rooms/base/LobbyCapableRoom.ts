@@ -29,6 +29,10 @@ export abstract class LobbyCapableRoom<S extends LobbyState, I = never> extends 
      * the server enforces — the room auto-locks once it is reached.
      */
     maxClients = 2;
+    minClients = 2;
+
+    //time between dropping connection and being kicked
+    reconnectionTime = 5;
 
     /** Set from the validated options so `onLobbyCreate` can read them. */
     protected lobbyConfig!: LobbyConfig;
@@ -89,5 +93,46 @@ export abstract class LobbyCapableRoom<S extends LobbyState, I = never> extends 
     /** True when this client created the lobby it was started from. */
     isHost(sessionId: string): boolean {
         return this.state.hostId !== "" && this.state.hostId === sessionId;
+    }
+
+    onDrop(client: Client, code: number) {
+        console.log(`Client ${client.sessionId} dropped (code: ${code})`);
+    
+        // Allow reconnection for x seconds
+        this.allowReconnection(client, this.reconnectionTime);
+    
+        // Mark player as disconnected (but don't remove them)
+        const player = this.state.players.get(client.sessionId);
+        if (player) {
+            player.connected = false;
+        }
+
+        this.broadcast("disconnect", "Player Disconnected");
+
+    }
+
+    onLeave(client: Client, code: number) {
+        console.log(`Client ${client.sessionId} left permanently (code: ${code})`);
+        // Now it's safe to remove the player
+        this.state.players.delete(client.sessionId);
+
+        this.broadcast("leave", "Player Left");
+        
+
+        if (this.clients.length < this.minClients)
+        {
+            this.broadcast("gameEnded", "Not enough players.");
+            this.disconnect();
+        }
+    }
+
+    onReconnect(client: Client) {
+        console.log(`Client ${client.sessionId} reconnected!`);
+    
+        // Restore player connection status
+        const player = this.state.players.get(client.sessionId);
+        if (player) {
+            player.connected = true;
+        }
     }
 }

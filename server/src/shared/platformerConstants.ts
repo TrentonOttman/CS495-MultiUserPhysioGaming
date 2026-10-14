@@ -19,3 +19,5 @@ export const PLAYER_WIDTH = 32;
 export const PLAYER_HEIGHT = 32;
 export const PLAYER_WIDTH_HALF = PLAYER_WIDTH / 2;
 export const PLAYER_HEIGHT_HALF = PLAYER_HEIGHT / 2;
+/** Simulation rate for platformer rooms, in Hz. One world step per tick. */
+export const PLATFORMER_TICK_RATE = 60;

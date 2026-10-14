@@ -13,6 +13,8 @@ const arenaEl = document.getElementById("arena")!;
 const gameEl = document.getElementById("game")!;
 const appEl = document.getElementById("app")!;
 const scoreEl = document.getElementById("score")!;
+const titleEl = document.getElementById("game-title")!;
+const helpEl = document.getElementById("game-help")!;
 const rejoinButton = document.getElementById("rejoin")!;
 
 const REJOIN_KEY = "colyseus-rejoin";
@@ -80,8 +82,10 @@ async function resumeGame(
             });
             break;
 
-        case "physio-park":
-            await startPhysioPark(client, room);
+        case "physio_park":
+            await startPhysioPark(client, room, {
+                game: gameEl, arena: arenaEl, score: scoreEl, status: statusEl, title: titleEl, help: helpEl,
+            });
             break;
 
         default:
@@ -261,7 +265,9 @@ async function enterGame(gameId: GameId, roomId: string) {
             break;
 
         case "physio_park":
-            await startPhysioPark(client, roomId);
+            await startPhysioPark(client, roomId, {
+                game: gameEl, arena: arenaEl, score: scoreEl, status: statusEl, title: titleEl, help: helpEl,
+            });
             break;
 
         default:

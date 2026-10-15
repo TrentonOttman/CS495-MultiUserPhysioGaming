@@ -35,8 +35,9 @@ const SMOOTHING_MS = 40;
 class PhysioParkScene extends Phaser.Scene {
     private room: Room<PhysioParkRoom>;
     private input_: InputHandle<MoveInput>;
-    private sprites = new Map<string, Phaser.GameObjects.Container>();
     private goalText: Phaser.GameObjects.Text;
+
+    private playerEntities = new Map<string, any>();
 
     private keys: {
         left: Phaser.Input.Keyboard.Key[];
@@ -46,8 +47,6 @@ class PhysioParkScene extends Phaser.Scene {
 
     /** The last input sent, so a new one is only sent when it changes. */
     private lastSent = { moveX: 0, jump: false };
-
-    private playerEntities: { [sessionId: string]: any } = {};
 
     constructor(room: Room<PhysioParkRoom>) {
         super("physio-park");
@@ -82,12 +81,13 @@ class PhysioParkScene extends Phaser.Scene {
         const callbacks = Callbacks.get(this.room);
 
         callbacks.onAdd("players", (player: Player, sessionId: string) => {
-            this.sprites.set(sessionId, this.makePlayerSprite(player, sessionId === this.room.sessionId));
+            const entity = this.add.image(player.x, player.y, 'robo_pico').setOrigin(0.5);
+            this.playerEntities.set(sessionId, entity);
         });
 
         callbacks.onRemove("players", (_player: Player, sessionId: string) => {
-            this.sprites.get(sessionId)?.destroy();
-            this.sprites.delete(sessionId);
+            this.playerEntities.get(sessionId)?.destroy();
+            this.playerEntities.delete(sessionId);
         });
     }
 
@@ -103,7 +103,7 @@ class PhysioParkScene extends Phaser.Scene {
         // Ease each drawn player toward its latest server position.
         const t = 1 - Math.exp(-delta / SMOOTHING_MS);
         for (const [sessionId, player] of this.room.state.players) {
-            const sprite = this.sprites.get(sessionId);
+            const sprite = this.playerEntities.get(sessionId);
             if (!sprite) { continue; }
 
             // A big jump (e.g. a lava respawn) snaps instead of sliding across the level.

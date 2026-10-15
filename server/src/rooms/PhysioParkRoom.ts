@@ -1,16 +1,17 @@
 import { Client, type StepContext } from "colyseus";
 import { LobbyCapableRoom } from "./base/LobbyCapableRoom.js";
 import { PhysioParkState, Player, MoveInput } from "./schema/PhysioParkState.js";
-import { stepAllPlayers, type PlatformerPlayer } from "../shared/physioPark/physioParkMovement.js";
-import { PLATFORMER_TICK_RATE, PLAYER_HEIGHT_HALF } from "../shared/physioPark/physioParkConstants.js";
+import { Body, PhysicsWorld, Rect } from "../shared/physioPark/physioParkMovement.js";
+import { COYOTE_TIME, DT, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, MOVE_SPEED, PLAYER_HEIGHT, PLAYER_WIDTH, TICK_RATE } from "../shared/physioPark/physioParkConstants.js";
 import { SOLIDS, LAVA, GOAL, spawnPoint } from "../shared/physioPark/physioParkLevel.js";
-
-/** How far below the lava's surface a player's feet must sink before respawning. */
-const LAVA_DEPTH = 10;
 
 export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput> {
     maxClients = 8;
     state = new PhysioParkState();
+
+    private world = new PhysicsWorld({ x: 0, y: GRAVITY });
+
+    private playerMap = new Map<string, Body>();
 
     /**
      * State updates 30 times a second. The client smooths between updates, so
@@ -41,7 +42,42 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
      * configuration, so capacity and visibility are already set.
      */
     protected async onLobbyCreate(): Promise<void> {
-        this.setFixedTimestep((ctx) => this.step(ctx), PLATFORMER_TICK_RATE);
+        this.setFixedTimestep((ctx) => this.step(ctx), TICK_RATE);
+
+        for (let s of SOLIDS) {
+            this.world.add(
+                new Body(new Rect(s.x, s.y, s.width, s.height), { x: 0, y: 0 }, true), // solid platform
+            );
+        }
+
+        const lava = this.world.add(
+            new Body(new Rect(LAVA.x, LAVA.y, LAVA.width, LAVA.height), { x: 0, y: 0 }, true, true), // sensor
+        );
+        lava.tags.add("lava");
+
+        const goal = this.world.add(
+            new Body(new Rect(GOAL.x, GOAL.y - GOAL.height, GOAL.width, GOAL.height), { x: 0, y: 0 }, true, true), // sensor
+        );
+        goal.tags.add("goal");
+
+        this.world.addOverlapRule({
+            actorTag: "player",
+            targetTag: "lava",
+            handle: (player) => {
+                const spawn = spawnPoint(1);
+                player.rect.x = spawn.x;
+                player.rect.y = spawn.y;
+                player.velocity = { x: 0, y: 0 };
+            },
+        });
+
+        this.world.addOverlapRule({
+            actorTag: "player",
+            targetTag: "goal",
+            handle: () => {
+                this.state.goalReached = true;
+            },
+        });
     }
 
     onJoin(client: Client) {
@@ -59,6 +95,10 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             grounded: false,
             color: index % 8,
         }));
+
+        const player = this.world.add(new Body(new Rect(spawn.x, spawn.y, PLAYER_WIDTH, PLAYER_HEIGHT)));
+        player.tags.add("player");
+        this.playerMap.set(client.sessionId, player);
     }
 
     /**
@@ -85,57 +125,54 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
      * physics body, stepped, and copied back.
      */
     private step(ctx: StepContext) {
-        const entries: { player: Player; sessionId: string; sim: PlatformerPlayer }[] = [];
+        //         const input = this.inputs.get(sessionId).next();
+        for (const [sessionId, player] of this.state.players) {
+            const channel = this.inputs.get(sessionId);
+            if (!channel) { continue; }
+
+            const playerBody = this.playerMap.get(sessionId);
+            const canJump = playerBody.timeSinceGrounded <= COYOTE_TIME;
+
+            for (const input of channel) {
+                player.vx = input.moveX * MOVE_SPEED;
+
+                if (input.jump && canJump) {
+                    player.vy = -1 * JUMP_SPEED;
+                    playerBody.timeSinceGrounded += COYOTE_TIME + 1;
+                }
+
+                // Cut off jump early when not holding jump
+                const jumping = player.vy < 0 && playerBody.timeSinceGrounded > COYOTE_TIME;
+                if (jumping && !input.jump) {
+                    player.vy = 0;
+                }
+
+                if (player.vy >= MAX_FALL_SPEED) {
+                    player.vy = MAX_FALL_SPEED;
+                }
+            }
+
+            playerBody.velocity = { x: player.vx, y: player.vy };
+        }
+
+        this.world.step();
 
         for (const [sessionId, player] of this.state.players) {
-            const input = this.inputs.get(sessionId).next();
-            entries.push({
-                player,
-                sessionId,
-                sim: {
-                    body: {
-                        position: { x: player.x, y: player.y },
-                        velocity: { x: player.vx, y: player.vy },
-                        grounded: player.grounded,
-                    },
-                    input: { moveX: input?.moveX ?? 0, jump: input?.jump ?? false },
-                },
-            });
-        }
+            const channel = this.inputs.get(sessionId);
+            if (!channel) { continue; }
 
-        stepAllPlayers(entries.map((e) => e.sim), SOLIDS, ctx.dt);
+            const playerBody = this.playerMap.get(sessionId);
 
-        for (const { player, sessionId, sim } of entries) {
-            const { body } = sim;
+            player.x = playerBody.rect.x;
+            player.y = playerBody.rect.y;
 
-            // Fell into the lava: back to this player's spawn point.
-            if (body.position.y + PLAYER_HEIGHT_HALF > LAVA.y + LAVA_DEPTH) {
-                const spawn = spawnPoint(this.spawnIndex.get(sessionId) ?? 0);
-                body.position.x = spawn.x;
-                body.position.y = spawn.y;
-                body.velocity.x = 0;
-                body.velocity.y = 0;
-                body.grounded = false;
-            }
-
-            player.x = body.position.x;
-            player.y = body.position.y;
-            player.vx = body.velocity.x;
-            player.vy = body.velocity.y;
-            player.grounded = body.grounded;
-
-            if (isOnGoal(player)) {
-                this.state.goalReached = true;
-            }
+            player.vx = playerBody.velocity.x;
+            player.vy = playerBody.velocity.y;
         }
     }
-}
 
-/** True when the player is standing on top of the goal ledge. */
-function isOnGoal(player: Player): boolean {
-    const feet = player.y + PLAYER_HEIGHT_HALF;
-    return player.grounded
-        && Math.abs(feet - GOAL.y) < 0.01
-        && player.x > GOAL.x
-        && player.x < GOAL.x + GOAL.width;
+    // Immediately kill room on restore to avoid crashing
+    async onRestoreRoom() {
+        await this.disconnect();
+    }
 }

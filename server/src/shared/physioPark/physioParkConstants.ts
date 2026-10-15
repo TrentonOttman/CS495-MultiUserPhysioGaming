@@ -15,19 +15,24 @@ export const RESOLUTION_Y = 180;
 export const PIXELS_PER_METER = 8;
 
 /** Gravity, in pixels per second squared. */
-export const GRAVITY = 9.81 * PIXELS_PER_METER;
+export const GRAVITY = 25 * PIXELS_PER_METER;
 
-/** Fastest a player can fall, in pixels per second. */
-export const MAX_FALL_SPEED = 20 * PIXELS_PER_METER;
+/** Fastest 
+ * a player can fall, in pixels per second. */
+export const MAX_FALL_SPEED = 8 * PIXELS_PER_METER;
 
 /** Horizontal walking speed, in pixels per second. */
 export const MOVE_SPEED = 5 * PIXELS_PER_METER;
 
 /** Upward speed at the start of a jump. Jump height ≈ JUMP_SPEED² / (2 × GRAVITY) ≈ 117 px. */
-export const JUMP_SPEED = 8 * PIXELS_PER_METER;
+export const JUMP_HEIGHT = 3 * PIXELS_PER_METER;
+export const JUMP_SPEED = Math.sqrt(2 * GRAVITY * JUMP_HEIGHT);
 
 export const PLAYER_WIDTH = 10;
 export const PLAYER_HEIGHT = 10;
 
 export const PLAYER_WIDTH_HALF = PLAYER_WIDTH / 2;
 export const PLAYER_HEIGHT_HALF = PLAYER_HEIGHT / 2;
+
+/** Allow players to jump 0.2 seconds after leaving the ground */
+export const COYOTE_TIME = Math.floor(0.2 * TICK_RATE);

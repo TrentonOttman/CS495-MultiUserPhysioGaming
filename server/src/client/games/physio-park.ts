@@ -3,8 +3,8 @@ import { Callbacks, type ColyseusSDK, type Room, type InputHandle } from "@colys
 import type { default as server } from "../../app.config.js";
 import type { PhysioParkRoom } from "../../rooms/PhysioParkRoom.js";
 import type { MoveInput, Player } from "../../rooms/schema/PhysioParkState.js";
-import { PLAYER_WIDTH, PLAYER_HEIGHT, RESOLUTION_X, RESOLUTION_Y } from "../../shared/physioPark/physioParkConstants.js";
-import { LEVEL_WIDTH, LEVEL_HEIGHT, SOLIDS, LAVA, GOAL } from "../../shared/physioPark/physioParkLevel.js";
+import { RESOLUTION_X, RESOLUTION_Y } from "../../shared/physioPark/physioParkConstants.js";
+import { LEVEL_WIDTH, SOLIDS, LAVA, GOAL } from "../../shared/physioPark/physioParkLevel.js";
 import { setupRoom } from "./roomSetup.ts";
 
 export interface PhysioParkElements {
@@ -73,7 +73,7 @@ class PhysioParkScene extends Phaser.Scene {
 
         this.goalText = this.add.text(LEVEL_WIDTH / 2, 40, "Goal reached!", {
             fontFamily: "sans-serif",
-            fontSize: "32px",
+            fontSize: "24px",
             fontStyle: "bold",
             color: "#2e7d32",
         }).setOrigin(0.5).setVisible(false);
@@ -81,7 +81,7 @@ class PhysioParkScene extends Phaser.Scene {
         const callbacks = Callbacks.get(this.room);
 
         callbacks.onAdd("players", (player: Player, sessionId: string) => {
-            const entity = this.add.image(player.x, player.y, 'robo_pico').setOrigin(0.5);
+            const entity = this.add.image(player.x, player.y, 'robo_pico').setOrigin(0);
             this.playerEntities.set(sessionId, entity);
         });
 
@@ -107,7 +107,7 @@ class PhysioParkScene extends Phaser.Scene {
             if (!sprite) { continue; }
 
             // A big jump (e.g. a lava respawn) snaps instead of sliding across the level.
-            if (Math.abs(player.x - sprite.x) > 100 || Math.abs(player.y - sprite.y) > 100) {
+            if (Math.abs(player.x - sprite.x) > 16 || Math.abs(player.y - sprite.y) > 16) {
                 sprite.setPosition(player.x, player.y);
             } else {
                 sprite.setPosition(
@@ -138,18 +138,6 @@ class PhysioParkScene extends Phaser.Scene {
         const poleX = GOAL.x + GOAL.width - 30;
         this.add.rectangle(poleX, GOAL.y - 40, 4, 40, 0x333333).setOrigin(0);
         this.add.triangle(0, 0, poleX + 4, GOAL.y - 40, poleX + 24, GOAL.y - 32, poleX + 4, GOAL.y - 24, 0x33aa33).setOrigin(0);
-    }
-
-    /** A colored square with eyes, centered on the player's position. */
-    private makePlayerSprite(player: Player, isSelf: boolean) {
-        const color = PLAYER_COLORS[player.color % PLAYER_COLORS.length];
-        const body = this.add.rectangle(0, 0, PLAYER_WIDTH, PLAYER_HEIGHT, color);
-        if (isSelf) { body.setStrokeStyle(2, 0x111111); }
-
-        const leftEye = this.add.rectangle(-6, -4, 6, 8, 0x111111);
-        const rightEye = this.add.rectangle(6, -4, 6, 8, 0x111111);
-
-        return this.add.container(player.x, player.y, [body, leftEye, rightEye]);
     }
 }
 

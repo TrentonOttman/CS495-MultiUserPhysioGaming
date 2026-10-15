@@ -18,6 +18,7 @@ import { resolveJoinCode } from "./lobby/joinCodeIndex.js";
 // Aliased: `LobbyRoom` above is Colyseus's built-in room browser. This is ours.
 import { LobbyRoom as SessionLobby } from "./rooms/LobbyRoom.js";
 import { listPublicLobbies } from "./lobby/publicLobbyListing.js";
+import { checkJoinCodeRateLimit, installHttpSecurity } from "./security/httpSecurity.js";
 
 const server = defineServer({
 
@@ -59,7 +60,9 @@ const server = defineServer({
          * ordinary outcome of a mistyped entry, not a server fault, and the
          * client renders it as a normal "not found".
          */
-        resolve_join_code: createEndpoint("/api/lobby/resolve/:code", { method: "GET" }, async (ctx) => {
+        resolve_join_code: createEndpoint("/api/lobby/resolve/:code", { method: "GET", requireRequest: true }, async (ctx) => {
+            const blocked = checkJoinCodeRateLimit(ctx.request);
+            if (blocked) { return blocked; }
             return { roomId: resolveJoinCode(String(ctx.params.code)) };
         }),
 
@@ -83,6 +86,8 @@ const server = defineServer({
      * Read more: https://expressjs.com/en/starter/basic-routing.html
      */
     express: (app) => {
+
+        installHttpSecurity(app);
 
         app.get("/hi", (req, res) => {
             res.send("It's time to kick ass and chew bubblegum!");

@@ -1,5 +1,5 @@
-import type { Solid } from "./platformerMovement.js";
-import { PLAYER_HEIGHT_HALF } from "./platformerConstants.js";
+import type { Solid } from "./physioParkMovement.js";
+import { PLAYER_HEIGHT_HALF } from "./physioParkConstants.js";
 
 /**
  * The first Physio Park test level, based on the "Intro to mechanics" sketch:

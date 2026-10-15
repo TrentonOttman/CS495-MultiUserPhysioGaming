@@ -4,7 +4,7 @@ import type { ColyseusTestServer } from "@colyseus/testing";
 import type appConfig from "../src/app.config.js";
 import { getTestServer } from "./harness.js";
 import type { PhysioParkState, MoveInput } from "../src/rooms/schema/PhysioParkState.js";
-import { PLAYER_HEIGHT_HALF } from "../src/shared/platformerConstants.js";
+import { PLAYER_HEIGHT_HALF } from "../src/shared/physioPark/physioParkConstants.js";
 import { GROUND_Y } from "../src/shared/physioParkLevel.js";
 
 const LOBBY_OPTIONS = { name: "Physics Test", gameId: "physio_park", maxPlayers: 4, isPrivate: false };

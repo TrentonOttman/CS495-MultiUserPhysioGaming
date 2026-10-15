@@ -1,9 +1,9 @@
 import { Client, type StepContext } from "colyseus";
 import { LobbyCapableRoom } from "./base/LobbyCapableRoom.js";
 import { PhysioParkState, Player, MoveInput } from "./schema/PhysioParkState.js";
-import { stepAllPlayers, type PlatformerPlayer } from "../shared/platformerMovement.js";
-import { PLATFORMER_TICK_RATE, PLAYER_HEIGHT_HALF } from "../shared/platformerConstants.js";
-import { SOLIDS, LAVA, GOAL, spawnPoint } from "../shared/physioParkLevel.js";
+import { stepAllPlayers, type PlatformerPlayer } from "../shared/physioPark/physioParkMovement.js";
+import { PLATFORMER_TICK_RATE, PLAYER_HEIGHT_HALF } from "../shared/physioPark/physioParkConstants.js";
+import { SOLIDS, LAVA, GOAL, spawnPoint } from "../shared/physioPark/physioParkLevel.js";
 
 /** How far below the lava's surface a player's feet must sink before respawning. */
 const LAVA_DEPTH = 10;

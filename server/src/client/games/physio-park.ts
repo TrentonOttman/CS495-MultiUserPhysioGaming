@@ -3,8 +3,8 @@ import { Callbacks, type ColyseusSDK, type Room, type InputHandle } from "@colys
 import type { default as server } from "../../app.config.js";
 import type { PhysioParkRoom } from "../../rooms/PhysioParkRoom.js";
 import type { MoveInput, Player } from "../../rooms/schema/PhysioParkState.js";
-import { PLAYER_WIDTH, PLAYER_HEIGHT } from "../../shared/platformerConstants.js";
-import { LEVEL_WIDTH, LEVEL_HEIGHT, SOLIDS, LAVA, GOAL } from "../../shared/physioParkLevel.js";
+import { PLAYER_WIDTH, PLAYER_HEIGHT } from "../../shared/physioPark/physioParkConstants.js";
+import { LEVEL_WIDTH, LEVEL_HEIGHT, SOLIDS, LAVA, GOAL } from "../../shared/physioPark/physioParkLevel.js";
 import { setupRoom } from "./roomSetup.ts";
 
 export interface PhysioParkElements {

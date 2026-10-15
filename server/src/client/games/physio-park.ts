@@ -1,9 +1,9 @@
-import * as Phaser from "phaser";
+import Phaser from "phaser";
 import { Callbacks, type ColyseusSDK, type Room, type InputHandle } from "@colyseus/sdk";
 import type { default as server } from "../../app.config.js";
 import type { PhysioParkRoom } from "../../rooms/PhysioParkRoom.js";
 import type { MoveInput, Player } from "../../rooms/schema/PhysioParkState.js";
-import { PLAYER_WIDTH, PLAYER_HEIGHT } from "../../shared/physioPark/physioParkConstants.js";
+import { PLAYER_WIDTH, PLAYER_HEIGHT, RESOLUTION_X, RESOLUTION_Y } from "../../shared/physioPark/physioParkConstants.js";
 import { LEVEL_WIDTH, LEVEL_HEIGHT, SOLIDS, LAVA, GOAL } from "../../shared/physioPark/physioParkLevel.js";
 import { setupRoom } from "./roomSetup.ts";
 
@@ -47,9 +47,15 @@ class PhysioParkScene extends Phaser.Scene {
     /** The last input sent, so a new one is only sent when it changes. */
     private lastSent = { moveX: 0, jump: false };
 
+    private playerEntities: { [sessionId: string]: any } = {};
+
     constructor(room: Room<PhysioParkRoom>) {
         super("physio-park");
         this.room = room;
+    }
+
+    preload() {
+        this.load.image('robo_pico', 'assets/RoboPico1.png');
     }
 
     create() {
@@ -170,12 +176,19 @@ export async function startPhysioPark(
     help.textContent = "Move with A/D or ←/→. Jump with W, ↑ or Space. Stack on each other to reach the flag!";
     status.textContent = `Connected as ${room.sessionId}`;
 
-    new Phaser.Game({
+    const config: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
-        width: LEVEL_WIDTH,
-        height: LEVEL_HEIGHT,
+        width: RESOLUTION_X,
+        height: RESOLUTION_Y,
         backgroundColor: "#f4f1ea",
         parent: arena,
+        pixelArt: true,
+        scale: {
+            mode: Phaser.Scale.WIDTH_CONTROLS_HEIGHT,
+            autoCenter: Phaser.Scale.CENTER_HORIZONTALLY
+        },
         scene: [new PhysioParkScene(room)],
-    });
+    };
+    
+    new Phaser.Game(config);
 }

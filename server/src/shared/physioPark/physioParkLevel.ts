@@ -11,33 +11,33 @@ import { PLAYER_HEIGHT_HALF } from "./physioParkConstants.js";
  * on where the platforms are. Units are pixels; y grows downward.
  */
 
-export const LEVEL_WIDTH = 800;
-export const LEVEL_HEIGHT = 600;
+export const LEVEL_WIDTH = 320;
+export const LEVEL_HEIGHT = 180;
 
-const GROUND_TOP = 520;
+const GROUND_TOP = 156;
 
 export interface Rect { x: number; y: number; width: number; height: number; }
 
 /** The goal ledge players must reach. */
-export const GOAL: Solid = { x: 640, y: GROUND_TOP - 130, width: 160, height: 20 };
+export const GOAL: Solid = { x: 256, y: GROUND_TOP - 39, width: 64, height: 6 };
 
 /** Everything players stand on or bump into. */
 export const SOLIDS: readonly Solid[] = [
-    { x: 0, y: GROUND_TOP, width: 250, height: 80 },    // left ground
-    { x: 300, y: 460, width: 60, height: 20 },          // stepping platform 1
-    { x: 410, y: 420, width: 60, height: 20 },          // stepping platform 2
-    { x: 520, y: GROUND_TOP, width: 280, height: 80 },  // right ground
+    { x: 0, y: GROUND_TOP, width: 100, height: 24 },       // left ground
+    { x: 120, y: 138, width: 24, height: 6 },              // stepping platform 1
+    { x: 164, y: 126, width: 24, height: 6 },              // stepping platform 2
+    { x: 208, y: GROUND_TOP, width: 112, height: 24 },     // right ground
     GOAL,
-    { x: -20, y: -1000, width: 20, height: 2000 },      // left level edge
-    { x: LEVEL_WIDTH, y: -1000, width: 20, height: 2000 }, // right level edge
+    { x: -8, y: -300, width: 8, height: 600 },             // left level edge
+    { x: LEVEL_WIDTH, y: -300, width: 8, height: 600 },    // right level edge
 ];
 
 /** Falling into this respawns the player. */
-export const LAVA: Rect = { x: 250, y: 545, width: 270, height: 55 };
+export const LAVA: Rect = { x: 100, y: 163.5, width: 108, height: 16.5 };
 
 /** Where the player who joined `index`-th spawns: spread out along the left ground. */
 export function spawnPoint(index: number): { x: number; y: number } {
-    return { x: 40 + (index % 6) * 36, y: GROUND_TOP - PLAYER_HEIGHT_HALF };
+    return { x: 16 + (index % 6) * 14.4, y: GROUND_TOP - PLAYER_HEIGHT_HALF };
 }
 
 /** The y-coordinate of a player's feet when standing on the ground. */

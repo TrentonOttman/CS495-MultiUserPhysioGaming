@@ -17,6 +17,8 @@ import fili from "./fili.esm.js";
 const sampleRate = 250;
 const firCalculator = new fili.FirCoeffs();
 
+import {setData} from "./sensorData.js";
+
 // calculate filter coefficients
 var firFilterCoeffs = firCalculator.lowpass({
   order: 100, // filter order
@@ -100,6 +102,7 @@ const handleTrack = (track) => {
     if (i == 0) {
       sampleDiv.innerHTML = filteredSample;
       visualizer.updateTrackData(i, filteredSample);
+      setData(filteredSample);
     }
     // Run ondata Callback
     //ondata(data, timestamps, track.contentHint);

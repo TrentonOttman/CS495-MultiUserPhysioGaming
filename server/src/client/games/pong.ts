@@ -6,6 +6,7 @@ import type { PongRoom } from "../../rooms/PongRoom.js";
 import { stepEntity } from "../../shared/movement.js";
 import { setupRoom } from "./roomSetup.ts";
 import { Room } from "colyseus";
+import {getData} from "../../sensor/sensorData.js";
 
 export interface PongElements {
     game: HTMLElement;
@@ -50,7 +51,8 @@ export async function startPong(client: ColyseusSDK<typeof server>, roomOrId: st
 
     // Opposite keys cancel out, so the axis is always exactly -1, 0 or 1.
     function axis(negative: string[], positive: string[]): -1 | 0 | 1 {
-        const back = negative.some((key) => held.has(key));
+        var back = negative.some((key) => held.has(key));
+        back = (back || getData() > 0.3);
         const forward = positive.some((key) => held.has(key));
         if (back === forward) { return 0; }
         return back ? -1 : 1;

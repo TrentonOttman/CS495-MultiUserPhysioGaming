@@ -13,6 +13,7 @@ export interface PongElements {
     arena: HTMLElement;
     score: HTMLElement;
     status: HTMLElement;
+    displayName?: string;
 }
 
 /**
@@ -27,7 +28,7 @@ export async function startPong(client: ColyseusSDK<typeof server>, roomOrId: st
     let room: Room<PongRoom["state"]>;
 
     if (typeof roomOrId === "string") {
-        room = await client.joinById<PongRoom>(roomOrId);
+        room = await client.joinById<PongRoom>(roomOrId, { displayName: elements.displayName });
     } else {
         room = roomOrId;
     }
@@ -78,7 +79,8 @@ export async function startPong(client: ColyseusSDK<typeof server>, roomOrId: st
     });
 
     game.hidden = false;
-    status.textContent = `Connected as ${room.sessionId}`;
+    const displayName = room.state?.lobbyPlayers?.get(room.sessionId)?.displayName || room.sessionId;
+    status.textContent = `Connected as ${displayName}, SessionID: ${room.sessionId}`;
 
     const nodes = new Map<string, HTMLElement>();
     const callbacks = Callbacks.get(room);

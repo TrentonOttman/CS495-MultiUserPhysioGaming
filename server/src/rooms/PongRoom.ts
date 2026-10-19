@@ -3,6 +3,8 @@ import { LobbyCapableRoom } from "./base/LobbyCapableRoom.js";
 import { PongState, Player, MoveInput, Vec2, Ball } from "./schema/PongState.js";
 import { TICK_RATE, ARENA_WIDTH, ARENA_HEIGHT, BALL_SPEED } from "../shared/pongConstants.js";
 import { stepPlayer, stepBall, checkIfScored } from "../shared/pongMovement.js";
+import { validateDisplayName } from "../shared/displayName.ts";
+import { PlayerInfo } from "./schema/LobbyState.ts";
 
 const arenaCenter: Vec2 = new Vec2({
     x: ARENA_WIDTH / 2,
@@ -53,7 +55,21 @@ export class PongRoom extends LobbyCapableRoom<PongState, MoveInput> {
         console.log(client.sessionId, "joined!");
 
         const playerCount = this.state.players.size;
+        let rawName = options?.displayName;
+        if (!rawName || typeof rawName !== "string" || rawName.trim() === "") {
+            rawName = `Player ${this.state.lobbyPlayers.size + 1}`;
+        }
+        const nameResult = validateDisplayName(rawName);
+        const finalDisplayName = nameResult.ok ? nameResult.displayName : `Player ${this.state.lobbyPlayers.size + 1}`;
 
+        const playerInfo = new PlayerInfo();
+        playerInfo.displayName = finalDisplayName;
+        this.state.lobbyPlayers.set(client.sessionId, playerInfo);
+
+        if (this.state.playerIds && !this.state.playerIds.includes(client.sessionId)) {
+            this.state.playerIds.push(client.sessionId);
+        }
+        
         // Spawn left paddle
         if (!this.leftPaddle) {
             this.state.players.set(client.sessionId, new Player({

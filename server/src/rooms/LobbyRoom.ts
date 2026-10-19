@@ -1,5 +1,5 @@
 import { Room, Client, CloseCode, matchMaker, ServerError, ErrorCode } from "colyseus";
-import { LobbyState } from "./schema/LobbyState.js";
+import { LobbyState, PlayerInfo } from "./schema/LobbyState.js";
 import {
     bindJoinCodeRoom,
     generateUniqueJoinCode,
@@ -15,6 +15,7 @@ import {
     type LobbyConfigField,
     type LobbyMetadata,
 } from "../shared/lobbyConfig.js";
+import { validateDisplayName } from "../shared/displayName.ts";
 
 /** Payload the host sends to replace the lobby configuration. */
 export interface ConfigurePayload {
@@ -152,16 +153,26 @@ export class LobbyRoom extends Room<{
      * capacity gates entry here as well as in the game room.
      */
     async onJoin(client: LobbyClient, options: any) {
+       let rawName = options?.displayName;
+        if (!rawName || typeof rawName !== "string" || rawName.trim() === "") {
+            rawName = `Player ${this.state.playerIds.length + 1}`;
+        }
+
+        const nameResult = validateDisplayName(rawName);
+        const finalDisplayName = nameResult.ok ? nameResult.displayName : `Player ${this.state.playerIds.length + 1}`;
+
         const allowed = await this.authorizeJoin(client, options);
         if (!allowed) {
-            // Failing inside onJoin releases the seat reservation the SDK is
-            // waiting on, so the client sees a rejected join rather than a
-            // silent room it can never enter.
             throw new ServerError(ErrorCode.MATCHMAKE_UNHANDLED, "Not allowed to join this lobby.");
         }
 
         this.members.push(client);
         this.state.playerIds.push(client.sessionId);
+        
+        const playerInfo = new PlayerInfo();
+        playerInfo.displayName = finalDisplayName;
+        this.state.lobbyPlayers.set(client.sessionId, playerInfo);
+
         this.state.memberCount = this.state.playerIds.length;
 
         if (this.state.hostId === "") {
@@ -175,6 +186,7 @@ export class LobbyRoom extends Room<{
         if (playerIndex >= 0) {
             this.state.playerIds.splice(playerIndex, 1);
         }
+        this.state.lobbyPlayers.delete(client.sessionId);
         this.state.memberCount = this.state.playerIds.length;
 
         // A dropped client keeps its seat during the reconnection window. Once

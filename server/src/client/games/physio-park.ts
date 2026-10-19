@@ -14,6 +14,8 @@ export interface PhysioParkElements {
     status: HTMLElement;
     title: HTMLElement;
     help: HTMLElement;
+    displayName?: string;
+
 }
 
 /** One color per player slot (placeholders until the character sprites land). */
@@ -33,7 +35,7 @@ const SMOOTHING_MS = 40;
  * Phaser's arcade physics, which would fight the server for control.
  */
 class PhysioParkScene extends Phaser.Scene {
-    private room: Room<PhysioParkRoom>;
+    private room: Room<PhysioParkRoom["state"]>;
     private input_: InputHandle<MoveInput>;
     private sprites = new Map<string, Phaser.GameObjects.Container>();
     private goalText: Phaser.GameObjects.Text;
@@ -47,7 +49,7 @@ class PhysioParkScene extends Phaser.Scene {
     /** The last input sent, so a new one is only sent when it changes. */
     private lastSent = { moveX: 0, jump: false };
 
-    constructor(room: Room<PhysioParkRoom>) {
+    constructor(room: Room<PhysioParkRoom["state"]>) {
         super("physio-park");
         this.room = room;
     }
@@ -160,7 +162,7 @@ export async function startPhysioPark(
 
     // A string is a normal game start; a room is a rejoin via client.reconnect().
     let room = typeof roomOrId === "string"
-        ? await client.joinById<PhysioParkRoom>(roomOrId)
+        ? await client.joinById(roomOrId, {displayName: elements.displayName})
         : roomOrId;
     room = setupRoom(room as any, "physio_park") as any;
 
@@ -168,7 +170,8 @@ export async function startPhysioPark(
     title.textContent = "Physio Park";
     score.hidden = true;
     help.textContent = "Move with A/D or ←/→. Jump with W, ↑ or Space. Stack on each other to reach the flag!";
-    status.textContent = `Connected as ${room.sessionId}`;
+    const displayName = room.state?.lobbyPlayers?.get(room.sessionId)?.displayName || room.sessionId;
+    status.textContent = `Connected as ${displayName}, SessionID: ${room.sessionId}`;
 
     new Phaser.Game({
         type: Phaser.AUTO,

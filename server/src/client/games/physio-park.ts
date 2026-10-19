@@ -82,6 +82,11 @@ class PhysioParkScene extends Phaser.Scene {
 
         callbacks.onAdd("players", (player: Player, sessionId: string) => {
             const entity = this.add.image(player.x, player.y, 'robo_pico').setOrigin(0);
+            
+            console.log(player.color);
+            const tint = PLAYER_COLORS[player.color % PLAYER_COLORS.length];
+            entity.setTint(tint);
+            
             this.playerEntities.set(sessionId, entity);
         });
 
@@ -114,6 +119,13 @@ class PhysioParkScene extends Phaser.Scene {
                     sprite.x + (player.x - sprite.x) * t,
                     sprite.y + (player.y - sprite.y) * t,
                 );
+            }
+
+            // Don't change sprite direction when velocity is zero.
+            if (player.vx < 0) {
+                sprite.setFlipX(true);
+            } else if (player.vx > 0) {
+                sprite.setFlipX(false);
             }
         }
 

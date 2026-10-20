@@ -627,15 +627,13 @@
         }
 
         #arena {
-            position: relative;
-            width: 800px;
-            height: 600px;
-            max-width: 100%;
-            margin: 1rem auto;
             border: 2px solid #8886;
-            background: #1114;
             border-radius: .5rem;
             overflow: hidden;
+        }
+
+        #arena > canvas {
+            display: block;
         }
 
         .player.self {

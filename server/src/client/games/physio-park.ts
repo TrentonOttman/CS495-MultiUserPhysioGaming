@@ -1,10 +1,10 @@
-import * as Phaser from "phaser";
+import Phaser from "phaser";
 import { Callbacks, type ColyseusSDK, type Room, type InputHandle } from "@colyseus/sdk";
 import type { default as server } from "../../app.config.js";
 import type { PhysioParkRoom } from "../../rooms/PhysioParkRoom.js";
 import type { MoveInput, Player } from "../../rooms/schema/PhysioParkState.js";
-import { PLAYER_WIDTH, PLAYER_HEIGHT } from "../../shared/platformerConstants.js";
-import { LEVEL_WIDTH, LEVEL_HEIGHT, SOLIDS, LAVA, GOAL } from "../../shared/physioParkLevel.js";
+import { RESOLUTION_X, RESOLUTION_Y } from "../../shared/physioPark/physioParkConstants.js";
+import { LEVEL_WIDTH, SOLIDS, LAVA, GOAL } from "../../shared/physioPark/physioParkLevel.js";
 import { setupRoom } from "./roomSetup.ts";
 
 export interface PhysioParkElements {
@@ -35,8 +35,9 @@ const SMOOTHING_MS = 40;
 class PhysioParkScene extends Phaser.Scene {
     private room: Room<PhysioParkRoom>;
     private input_: InputHandle<MoveInput>;
-    private sprites = new Map<string, Phaser.GameObjects.Container>();
     private goalText: Phaser.GameObjects.Text;
+
+    private playerEntities = new Map<string, any>();
 
     private keys: {
         left: Phaser.Input.Keyboard.Key[];
@@ -50,6 +51,10 @@ class PhysioParkScene extends Phaser.Scene {
     constructor(room: Room<PhysioParkRoom>) {
         super("physio-park");
         this.room = room;
+    }
+
+    preload() {
+        this.load.image('robo_pico', 'assets/RoboPico1.png');
     }
 
     create() {
@@ -68,7 +73,7 @@ class PhysioParkScene extends Phaser.Scene {
 
         this.goalText = this.add.text(LEVEL_WIDTH / 2, 40, "Goal reached!", {
             fontFamily: "sans-serif",
-            fontSize: "32px",
+            fontSize: "24px",
             fontStyle: "bold",
             color: "#2e7d32",
         }).setOrigin(0.5).setVisible(false);
@@ -76,12 +81,18 @@ class PhysioParkScene extends Phaser.Scene {
         const callbacks = Callbacks.get(this.room);
 
         callbacks.onAdd("players", (player: Player, sessionId: string) => {
-            this.sprites.set(sessionId, this.makePlayerSprite(player, sessionId === this.room.sessionId));
+            const entity = this.add.image(player.x, player.y, 'robo_pico').setOrigin(0);
+            
+            console.log(player.color);
+            const tint = PLAYER_COLORS[player.color % PLAYER_COLORS.length];
+            entity.setTint(tint);
+            
+            this.playerEntities.set(sessionId, entity);
         });
 
         callbacks.onRemove("players", (_player: Player, sessionId: string) => {
-            this.sprites.get(sessionId)?.destroy();
-            this.sprites.delete(sessionId);
+            this.playerEntities.get(sessionId)?.destroy();
+            this.playerEntities.delete(sessionId);
         });
     }
 
@@ -97,17 +108,24 @@ class PhysioParkScene extends Phaser.Scene {
         // Ease each drawn player toward its latest server position.
         const t = 1 - Math.exp(-delta / SMOOTHING_MS);
         for (const [sessionId, player] of this.room.state.players) {
-            const sprite = this.sprites.get(sessionId);
+            const sprite = this.playerEntities.get(sessionId);
             if (!sprite) { continue; }
 
             // A big jump (e.g. a lava respawn) snaps instead of sliding across the level.
-            if (Math.abs(player.x - sprite.x) > 100 || Math.abs(player.y - sprite.y) > 100) {
+            if (Math.abs(player.x - sprite.x) > 16 || Math.abs(player.y - sprite.y) > 16) {
                 sprite.setPosition(player.x, player.y);
             } else {
                 sprite.setPosition(
                     sprite.x + (player.x - sprite.x) * t,
                     sprite.y + (player.y - sprite.y) * t,
                 );
+            }
+
+            // Don't change sprite direction when velocity is zero.
+            if (player.vx < 0) {
+                sprite.setFlipX(true);
+            } else if (player.vx > 0) {
+                sprite.setFlipX(false);
             }
         }
 
@@ -132,18 +150,6 @@ class PhysioParkScene extends Phaser.Scene {
         const poleX = GOAL.x + GOAL.width - 30;
         this.add.rectangle(poleX, GOAL.y - 40, 4, 40, 0x333333).setOrigin(0);
         this.add.triangle(0, 0, poleX + 4, GOAL.y - 40, poleX + 24, GOAL.y - 32, poleX + 4, GOAL.y - 24, 0x33aa33).setOrigin(0);
-    }
-
-    /** A colored square with eyes, centered on the player's position. */
-    private makePlayerSprite(player: Player, isSelf: boolean) {
-        const color = PLAYER_COLORS[player.color % PLAYER_COLORS.length];
-        const body = this.add.rectangle(0, 0, PLAYER_WIDTH, PLAYER_HEIGHT, color);
-        if (isSelf) { body.setStrokeStyle(2, 0x111111); }
-
-        const leftEye = this.add.rectangle(-6, -4, 6, 8, 0x111111);
-        const rightEye = this.add.rectangle(6, -4, 6, 8, 0x111111);
-
-        return this.add.container(player.x, player.y, [body, leftEye, rightEye]);
     }
 }
 
@@ -170,12 +176,19 @@ export async function startPhysioPark(
     help.textContent = "Move with A/D or ←/→. Jump with W, ↑ or Space. Stack on each other to reach the flag!";
     status.textContent = `Connected as ${room.sessionId}`;
 
-    new Phaser.Game({
+    const config: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
-        width: LEVEL_WIDTH,
-        height: LEVEL_HEIGHT,
+        width: RESOLUTION_X,
+        height: RESOLUTION_Y,
         backgroundColor: "#f4f1ea",
         parent: arena,
+        pixelArt: true,
+        scale: {
+            mode: Phaser.Scale.WIDTH_CONTROLS_HEIGHT,
+            autoCenter: Phaser.Scale.CENTER_HORIZONTALLY
+        },
         scene: [new PhysioParkScene(room)],
-    });
+    };
+    
+    new Phaser.Game(config);
 }

@@ -144,6 +144,88 @@ promptForDisplayName().then(() => {
     showRejoinButton();
 });
 
+import { validateDisplayName } from "../shared/displayName.ts";
+
+const DISPLAY_NAME_KEY = "player-display-name";
+
+function getStoredDisplayName(): string {
+    const saved = sessionStorage.getItem(DISPLAY_NAME_KEY);
+    const result = validateDisplayName(saved);
+    if (result.ok) {
+        return result.displayName;
+    }
+}
+
+function promptForDisplayName(): Promise<string> {
+    return new Promise((resolve) => {
+        // If the user has already completed the prompt this session, don't show it again
+        const hasPrompted = sessionStorage.getItem("display-name-prompted");
+        if (hasPrompted) {
+            return resolve(getStoredDisplayName());
+        }
+
+        const existing = getStoredDisplayName();
+        if (existing) {
+            sessionStorage.setItem("display-name-prompted", "true");
+            return resolve(existing);
+        }
+
+        const modal = document.createElement("div");
+        modal.className = "modal-overlay";
+        modal.style.cssText = "position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 9999;";
+        modal.innerHTML = `
+            <div class="lobby-card modal-card" style="width: 100%; max-width: 400px; padding: 24px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+                <h3 style="margin-top: 0;">Enter Your Display Name</h3>
+                <p>Choose a name or leave blank for a default player number.</p>
+                <form id="name-form">
+                    <div class="form-group" style="margin-bottom: 16px;">
+                        <input id="display-name-input" maxlength="20" placeholder="Leave blank for Player N" autocomplete="off" style="width: 100%; padding: 8px; box-sizing: border-box;" />
+                    </div>
+                    <p id="name-error" role="alert" class="error-text" style="color: red; margin-bottom: 12px;" hidden></p>
+                    <button type="submit" class="primary-button" style="width: 100%;">Continue</button>
+                </form>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        const form = modal.querySelector<HTMLFormElement>("#name-form")!;
+        const input = modal.querySelector<HTMLInputElement>("#display-name-input")!;
+        const errorEl = modal.querySelector<HTMLElement>("#name-error")!;
+
+        input.focus();
+
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const val = input.value.trim();
+            
+            // Mark that the prompt has now been answered this session
+            sessionStorage.setItem("display-name-prompted", "true");
+
+            if (val !== "") {
+                const validation = validateDisplayName(val);
+                if (!validation.ok) {
+                    // If invalid, clear the flag so they can fix it
+                    sessionStorage.removeItem("display-name-prompted");
+                    errorEl.textContent = validation.error ?? "Invalid name";
+                    errorEl.hidden = false;
+                    return;
+                }
+                sessionStorage.setItem(DISPLAY_NAME_KEY, validation.displayName);
+                modal.remove();
+                resolve(validation.displayName);
+            } else {
+                sessionStorage.removeItem(DISPLAY_NAME_KEY);
+                modal.remove();
+                resolve(""); // Resolves empty so server assigns sequential Player X
+            }
+        });
+    });
+}
+
+promptForDisplayName().then(() => {
+    showRejoinButton();
+});
+
 const REJOIN_KEY = "colyseus-rejoin";
 
 type RejoinInfo = {

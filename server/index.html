@@ -639,6 +639,38 @@
         .player.self {
             background: #ffd24e;
         }
+        .sensor-panel { position: sticky; top: .35rem; z-index: 20; margin: 0 0 1rem; padding: .65rem .85rem; border: 1px solid #8885; border-radius: .65rem; background: Canvas; }
+        .sensor-bar { display: flex; align-items: center; gap: .6rem; }
+        .sensor-bar > button { box-sizing: border-box; height: 2.5rem; flex: 0 0 auto; width: auto; min-width: 5.5rem; padding: 0 .8rem; font-size: .9rem; line-height: 1; }
+        .sensor-heading, .game-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .sensor-heading h2, .game-heading h2 { margin: 0; }
+        .sensor-heading h2 { font-size: 1rem; line-height: 1.25; }
+        .sensor-toggle { flex: 1; min-width: 0; width: auto; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; }
+        .sensor-toggle.sensor-heading { justify-content: flex-start; gap: .8rem; }
+        .sensor-plug { width: 1.25rem; height: 1.25rem; flex: none; color: #777; transition: color .2s ease, transform .2s ease; }
+        .sensor-expand-icon { width: 1.15rem; height: 1.15rem; flex: none; color: currentColor; transition: transform .2s ease; }
+        .sensor-expand-button { display: grid; place-items: center; flex: 0 0 auto; width: 2.5rem; min-width: 2.5rem !important; height: 2.5rem; padding: 0 !important; border: 1px solid #8885; border-radius: .45rem; background: transparent; color: inherit; cursor: pointer; }
+        .sensor-expand-button:hover { background: #8882; }
+        .sensor-expand-button[aria-expanded="true"] .sensor-expand-icon { transform: rotate(180deg); }
+        .sensor-status[data-status="Connected"] .sensor-plug { color: #16833c; }
+        .sensor-status[data-status="Connecting"] .sensor-plug { color: #d49a00; animation: plug-pulse .8s ease-in-out infinite alternate; }
+        .sensor-status[data-status="Error"] .sensor-plug { color: #c62828; }
+        @keyframes plug-pulse { to { opacity: .45; } }
+        .sensor-details { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .25s ease, opacity .2s ease; }
+        .sensor-panel.is-expanded .sensor-details { grid-template-rows: 1fr; opacity: 1; }
+        .sensor-details-inner { overflow: hidden; min-height: 0; }
+        .sensor-details-inner > :first-child { margin-top: .75rem; }
+        .sensor-status { display: inline-flex; align-items: center; gap: .4rem; font-size: 1rem; line-height: 1.25; font-weight: 600; white-space: nowrap; }
+        .sensor-status[data-status="Connected"] { color: #126b32; }
+        .sensor-status[data-status="Connecting"] { color: #916800; }
+        .sensor-status[data-status="Error"] { color: #a51f1f; }
+        .sensor-actions { display: flex; gap: .5rem; margin-top: .7rem; }
+        .sensor-actions button { width: auto; }
+        #sensor-error { color: #c62828; margin: .5rem 0 0; }
+        #sensor-graph { display: block; width: 100%; height: 150px; margin-top: .75rem; border-radius: .35rem; }
+        #sensor-current-value { margin: .25rem 0 0; font-size: .9rem; font-variant-numeric: tabular-nums; }
+        @media (max-width: 600px) { .sensor-heading, .game-heading { align-items: center; flex-direction: row; } .sensor-bar { gap: .4rem; } .sensor-bar > button { min-width: 0; padding: 0 .6rem; font-size: .85rem; } .sensor-expand-button { min-width: 2.5rem !important; } }
+        @media (prefers-reduced-motion: reduce) { .sensor-details, .sensor-plug { transition: none; animation: none !important; } }
     </style>
 </head>
 
@@ -646,13 +678,36 @@
     <header>
         <h1>PhysioGaming</h1>
     </header>
+    <section class="sensor-panel" aria-labelledby="sensor-title">
+        <div class="sensor-bar">
+            <div class="sensor-toggle sensor-heading">
+                <h2 id="sensor-title">Sensor Status:</h2>
+                <span id="sensor-status-indicator" class="sensor-status" data-status="Disconnected" aria-live="polite">
+                    <svg class="sensor-plug sensor-plug-connected" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 7V3M15 7V3M7 7h10v4a5 5 0 0 1-5 5h0a5 5 0 0 1-5-5V7Z"/><path d="M12 16v2a3 3 0 0 0 3 3h2"/></svg>
+                    <span id="sensor-status">Disconnected</span>
+                </span>
+            </div>
+            <button id="sensor-connect" class="primary-button" type="button">Connect</button>
+            <button id="sensor-disconnect" class="secondary-button" type="button" hidden>Disconnect</button>
+            <button id="sensor-toggle" class="sensor-expand-button" type="button" aria-expanded="false" aria-controls="sensor-details" aria-label="Show sensor details"><svg class="sensor-expand-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        </div>
+        <div id="sensor-details" class="sensor-details" aria-hidden="true">
+            <div class="sensor-details-inner">
+                <p id="sensor-error" hidden></p>
+                <canvas id="sensor-graph" aria-label="Live sensor signal graph"></canvas>
+                <p id="sensor-current-value">Current value: <span id="sensor-current-sample">0</span></p>
+            </div>
+        </div>
+    </section>
     <button id="rejoin" hidden>
             Rejoin Game
     </button>
     <main id="app">
         <p id="status">Loading…</p>
         <section id="game" hidden>
-            <h2 id="game-title">Pong</h2>
+            <div class="game-heading">
+                <h2 id="game-title">Pong</h2>
+            </div>
 
             <div>
                 <h2 style="text-align: center;" id="score">0 | 0</h2>
@@ -668,16 +723,5 @@
 
     <script type="module" src="/src/client/index.ts"></script>
 </body>
-
-<body>
-    <button id="ganglion">Connect</button>
-    <div>
-        <canvas id="my_canvas"></canvas>
-    </div>
-        <p>Current value: <span id="filtered-sample">0</span></p>
-    </div>
-</body>
-<script type="module" src="src/sensor/datastream.js"></script>
-<script type="module" src="src/sensor/visualizer.js"></script>
 
 </html>

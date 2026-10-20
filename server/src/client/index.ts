@@ -7,6 +7,8 @@ import type { LobbyConfig } from "../shared/lobbyConfig.js";
 import type { GameId } from "../shared/games.js";
 import { startPong } from "./games/pong.js";
 import { startPhysioPark } from "./games/physio-park.js";
+import { connectSensor, disconnectSensor, getSensorSamples, subscribeSensor } from "./sensorConnection.js";
+import Visualizer from "../sensor/visualizer.js";
 
 const statusEl = document.getElementById("status")!;
 const arenaEl = document.getElementById("arena")!;
@@ -16,6 +18,49 @@ const scoreEl = document.getElementById("score")!;
 const titleEl = document.getElementById("game-title")!;
 const helpEl = document.getElementById("game-help")!;
 const rejoinButton = document.getElementById("rejoin")!;
+const sensorStatusEl = document.getElementById("sensor-status")!;
+const sensorStatusIndicator = document.getElementById("sensor-status-indicator")!;
+const sensorErrorEl = document.getElementById("sensor-error")!;
+const sensorConnectButton = document.getElementById("sensor-connect") as HTMLButtonElement;
+const sensorDisconnectButton = document.getElementById("sensor-disconnect") as HTMLButtonElement;
+const sensorCanvas = document.getElementById("sensor-graph") as HTMLCanvasElement;
+const sensorCurrentSample = document.getElementById("sensor-current-sample")!;
+const sensorPanel = document.querySelector(".sensor-panel") as HTMLElement;
+const sensorToggle = document.getElementById("sensor-toggle") as HTMLButtonElement;
+const sensorDetails = document.getElementById("sensor-details")!;
+sensorDetails.inert = true;
+const sensorVisualizer = new Visualizer("sensor-graph", 1);
+
+sensorConnectButton.addEventListener("click", () => void connectSensor());
+sensorDisconnectButton.addEventListener("click", disconnectSensor);
+sensorToggle.addEventListener("click", () => {
+    const expanded = sensorToggle.getAttribute("aria-expanded") !== "true";
+    sensorToggle.setAttribute("aria-expanded", String(expanded));
+    sensorToggle.setAttribute("aria-label", expanded ? "Hide sensor details" : "Show sensor details");
+    sensorDetails.setAttribute("aria-hidden", String(!expanded));
+    sensorDetails.inert = !expanded;
+    sensorPanel.classList.toggle("is-expanded", expanded);
+});
+subscribeSensor((sensorStatus, message) => {
+    sensorStatusEl.textContent = sensorStatus;
+    sensorStatusEl.setAttribute("data-status", sensorStatus);
+    sensorStatusIndicator.setAttribute("data-status", sensorStatus);
+    sensorErrorEl.textContent = message;
+    sensorErrorEl.hidden = !message;
+    sensorConnectButton.hidden = sensorStatus === "Connected" || sensorStatus === "Connecting";
+    sensorConnectButton.textContent = sensorStatus === "Error" ? "Reconnect" : "Connect";
+    sensorConnectButton.disabled = sensorStatus === "Connecting";
+    sensorDisconnectButton.hidden = sensorStatus !== "Connected";
+});
+
+function drawSensorGraph() {
+    const samples = getSensorSamples();
+    const current = samples.length ? samples[samples.length - 1] : 0;
+    sensorCurrentSample.textContent = current.toFixed(3);
+    sensorVisualizer.updateTrackData(0, current);
+    requestAnimationFrame(drawSensorGraph);
+}
+requestAnimationFrame(drawSensorGraph);
 
 const REJOIN_KEY = "colyseus-rejoin";
 

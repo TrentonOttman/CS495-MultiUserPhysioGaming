@@ -23,6 +23,7 @@ import { createLobbyBrowser } from "./lobbyBrowser.js";
  * join state; this screen only decides where it sits and when it is hidden.
  */
 
+
 export interface LobbyScreenCallbacks {
     onCreate(config: LobbyConfig): void;
     /**
@@ -75,7 +76,7 @@ export interface LobbyView {
     gameId: string;
     joinCode: string;
     memberCount: number;
-    playerIds: string[];
+    players?: Map<string, { displayName: string }> | Record<string, { displayName: string }>;    playerIds: string[];
     hostId: string;
     localPlayerId: string;
     isHost: boolean;
@@ -364,13 +365,24 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
         element.querySelector("#waiting-code")!.textContent = view.joinCode;
         element.querySelector("#waiting-roster-count")!.textContent = `${view.memberCount}/${view.maxPlayers}`;
         const players = element.querySelector<HTMLUListElement>("#waiting-players")!;
+        
         players.replaceChildren(...view.playerIds.map((sessionId) => {
             const item = document.createElement("li");
             item.className = "roster-player";
             const identity = document.createElement("span");
             identity.className = "roster-identity";
             const name = document.createElement("strong");
-            name.textContent = sessionId;
+
+            let displayName = sessionId;
+            if (view.players) {
+                if (typeof (view.players as any).get === "function") {
+                    displayName = (view.players as any).get(sessionId)?.displayName || sessionId;
+                } else if (typeof view.players === "object" && (view.players as any)[sessionId]) {
+                    displayName = (view.players as any)[sessionId].displayName || sessionId;
+                }
+            }
+            name.textContent = displayName;
+
             identity.append(name);
             const isHost = sessionId === view.hostId;
             if (isHost || sessionId === view.localPlayerId) {
@@ -396,7 +408,7 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
                 kickButton.type = "button";
                 kickButton.className = "roster-kick-button";
                 kickButton.textContent = "Kick";
-                kickButton.title = `Remove player ${sessionId} from this lobby`;
+                kickButton.title = `Remove player ${displayName} from this lobby`;
                 kickButton.addEventListener("click", () => onKick?.(sessionId));
                 item.append(kickButton);
             }

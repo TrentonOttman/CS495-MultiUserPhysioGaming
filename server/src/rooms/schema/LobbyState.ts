@@ -14,6 +14,14 @@ export type LobbyStatus = "configuring" | "starting";
  * The join code is deliberately kept out of `metadata` (which is published to
  * every room-browser subscriber) and lives here instead, alongside the roster.
  */
+
+export const PlayerInfo = schema({
+    displayName: t.string().default(""),
+}, "PlayerInfo");
+
+export type PlayerInfo = SchemaType<typeof PlayerInfo>;
+
+
 export const LobbyState = schema({
     lobbyName: t.string().default(""),
     maxPlayers: t.number().default(MIN_PLAYERS),
@@ -22,6 +30,7 @@ export const LobbyState = schema({
     hostId: t.string().default(""),
     joinCode: t.string().default(""),
     playerIds: t.array("string"),
+    lobbyPlayers: t.map(PlayerInfo),
     memberCount: t.number().default(0),
     status: t.string<LobbyStatus>().default("configuring"),
 }, "LobbyState");

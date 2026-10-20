@@ -4,6 +4,11 @@ import { PhysioParkState, Player, MoveInput } from "./schema/PhysioParkState.js"
 import { Body, PhysicsWorld, Rect } from "../shared/physioPark/physioParkMovement.js";
 import { COYOTE_TIME, DT, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, MOVE_SPEED, PLAYER_HEIGHT, PLAYER_WIDTH, TICK_RATE } from "../shared/physioPark/physioParkConstants.js";
 import { SOLIDS, LAVA, GOAL, spawnPoint } from "../shared/physioPark/physioParkLevel.js";
+import { validateDisplayName } from "../shared/displayName.ts";
+import { PlayerInfo } from "./schema/LobbyState.ts";
+
+/** How far below the lava's surface a player's feet must sink before respawning. */
+const LAVA_DEPTH = 10;
 
 export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput> {
     maxClients = 8;
@@ -80,8 +85,22 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         });
     }
 
-    onJoin(client: Client) {
+    onJoin(client: Client, options:any) {
         console.log(client.sessionId, "joined!");
+
+        let rawName = options?.displayName;
+        if (!rawName || typeof rawName !== "string" || rawName.trim() === "") {
+            rawName = `Player ${this.state.lobbyPlayers.size + 1}`;
+        }
+        const nameResult = validateDisplayName(rawName);
+        const finalDisplayName = nameResult.ok ? nameResult.displayName : `Player ${this.state.lobbyPlayers.size + 1}`;
+        const playerInfo = new PlayerInfo();
+        playerInfo.displayName = finalDisplayName;
+        this.state.lobbyPlayers.set(client.sessionId, playerInfo);
+
+        if (this.state.playerIds && !this.state.playerIds.includes(client.sessionId)) {
+            this.state.playerIds.push(client.sessionId);
+        }
 
         const index = this.joinCount++;
         this.spawnIndex.set(client.sessionId, index);

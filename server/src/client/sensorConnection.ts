@@ -20,6 +20,10 @@ const MAX_SAMPLES = 240;
 function publish(next: SensorStatus, message = "") {
     status = next;
     errorMessage = message;
+    if (next !== "Connected") {
+        samples.length = 0;
+        setData(0);
+    }
     listeners.forEach((listener) => listener(status, errorMessage));
 }
 

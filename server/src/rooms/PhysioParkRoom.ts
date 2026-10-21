@@ -2,13 +2,11 @@ import { Client, type StepContext } from "colyseus";
 import { LobbyCapableRoom } from "./base/LobbyCapableRoom.js";
 import { PhysioParkState, Player, MoveInput } from "./schema/PhysioParkState.js";
 import { Body, PhysicsWorld, Rect } from "../shared/physioPark/physioParkMovement.js";
-import { COYOTE_TIME, DT, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, MOVE_SPEED, PLAYER_HEIGHT, PLAYER_WIDTH, TICK_RATE } from "../shared/physioPark/physioParkConstants.js";
+import { GRAVITY, PLAYER_HEIGHT, PLAYER_WIDTH, TICK_RATE } from "../shared/physioPark/physioParkConstants.js";
+import { applyPlayerInput, NO_INPUT } from "../shared/physioPark/physioParkInput.js";
 import { SOLIDS, LAVA, GOAL, spawnPoint } from "../shared/physioPark/physioParkLevel.js";
 import { validateDisplayName } from "../shared/displayName.ts";
 import { PlayerInfo } from "./schema/LobbyState.ts";
-
-/** How far below the lava's surface a player's feet must sink before respawning. */
-const LAVA_DEPTH = 10;
 
 export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput> {
     maxClients = 8;
@@ -28,9 +26,8 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
      * Per-client input buffer. `sanitize` clamps `moveX` as it is decoded —
      * never trust the wire.
      *
-     * `idle` repeats a player's last input on ticks where nothing new arrived,
-     * so a held key keeps working even though the client only sends inputs when
-     * they change.
+     * The client sends one input per tick. `idle` repeats a player's last input
+     * on any tick where none arrived (a late packet), so a held key keeps working.
      */
     inputs = this.defineInput(MoveInput, {
         bufferMaxSize: 64,
@@ -112,6 +109,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             vx: 0,
             vy: 0,
             grounded: false,
+            timeSinceGrounded: 0,
             color: index % 8,
         }));
 
@@ -135,58 +133,32 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     }
 
     /**
-     * One world step per tick: every player takes exactly one input (`next()`,
-     * the shared-world primitive), then the shared platformer physics moves
-     * everyone together so players can collide with and stand on each other.
-     *
-     * The schema stores flat `x, y, vx, vy` fields while the physics works on
-     * `position` / `velocity` objects, so each player is copied into a plain
-     * physics body, stepped, and copied back.
+     * One world step per tick. Each player consumes exactly ONE input (`next()`,
+     * the shared-world primitive), so "one input = one step" holds on the server
+     * just as it will in client-side prediction. Input is applied with the shared
+     * `applyPlayerInput`, then the world steps everyone together.
      */
-    private step(ctx: StepContext) {
-        //         const input = this.inputs.get(sessionId).next();
-        for (const [sessionId, player] of this.state.players) {
-            const channel = this.inputs.get(sessionId);
-            if (!channel) { continue; }
+    private step(_ctx: StepContext) {
+        for (const sessionId of this.state.players.keys()) {
+            const body = this.playerMap.get(sessionId);
+            if (!body) { continue; }
 
-            const playerBody = this.playerMap.get(sessionId);
-            const canJump = playerBody.timeSinceGrounded <= COYOTE_TIME;
-
-            for (const input of channel) {
-                player.vx = input.moveX * MOVE_SPEED;
-
-                if (input.jump && canJump) {
-                    player.vy = -1 * JUMP_SPEED;
-                    playerBody.timeSinceGrounded += COYOTE_TIME + 1;
-                }
-
-                // Cut off jump early when not holding jump
-                const jumping = player.vy < 0 && playerBody.timeSinceGrounded > COYOTE_TIME;
-                if (jumping && !input.jump) {
-                    player.vy = 0;
-                }
-
-                if (player.vy >= MAX_FALL_SPEED) {
-                    player.vy = MAX_FALL_SPEED;
-                }
-            }
-
-            playerBody.velocity = { x: player.vx, y: player.vy };
+            const input = this.inputs.get(sessionId).next() ?? NO_INPUT;
+            applyPlayerInput(body, input);
         }
 
         this.world.step();
 
         for (const [sessionId, player] of this.state.players) {
-            const channel = this.inputs.get(sessionId);
-            if (!channel) { continue; }
+            const body = this.playerMap.get(sessionId);
+            if (!body) { continue; }
 
-            const playerBody = this.playerMap.get(sessionId);
-
-            player.x = playerBody.rect.x;
-            player.y = playerBody.rect.y;
-
-            player.vx = playerBody.velocity.x;
-            player.vy = playerBody.velocity.y;
+            player.x = body.rect.x;
+            player.y = body.rect.y;
+            player.vx = body.velocity.x;
+            player.vy = body.velocity.y;
+            player.timeSinceGrounded = body.timeSinceGrounded;
+            player.grounded = body.timeSinceGrounded === 0;
         }
     }
 

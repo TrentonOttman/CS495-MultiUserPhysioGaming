@@ -3,7 +3,7 @@ import { Callbacks, type ColyseusSDK, type Room, type InputHandle } from "@colys
 import type { default as server } from "../../app.config.js";
 import type { PhysioParkRoom } from "../../rooms/PhysioParkRoom.js";
 import type { MoveInput, Player } from "../../rooms/schema/PhysioParkState.js";
-import { RESOLUTION_X, RESOLUTION_Y } from "../../shared/physioPark/physioParkConstants.js";
+import { RESOLUTION_X, RESOLUTION_Y, TICK_RATE } from "../../shared/physioPark/physioParkConstants.js";
 import { LEVEL_WIDTH, SOLIDS, LAVA, GOAL } from "../../shared/physioPark/physioParkLevel.js";
 import { setupRoom } from "./roomSetup.ts";
 
@@ -28,6 +28,12 @@ const PLAYER_COLORS = [0x7ec97e, 0x7eb6e0, 0xe09ad8, 0xf2c14e, 0xe0705a, 0x9b7ee
  */
 const SMOOTHING_MS = 40;
 
+/** Milliseconds per simulation tick. The client sends exactly one input per tick. */
+const STEP_MS = 1000 / TICK_RATE;
+
+/** Never send more than this many catch-up inputs in one frame (e.g. after a frozen tab). */
+const MAX_STEPS_PER_FRAME = 5;
+
 /**
  * Draws the game. It does not simulate anything: the server runs the shared
  * platformer physics and this scene only draws players where the server says
@@ -47,8 +53,8 @@ class PhysioParkScene extends Phaser.Scene {
         jump: Phaser.Input.Keyboard.Key[];
     };
 
-    /** The last input sent, so a new one is only sent when it changes. */
-    private lastSent = { moveX: 0, jump: false };
+    /** Leftover frame time not yet turned into a fixed-rate input. */
+    private inputAccumulator = 0;
 
     constructor(room: Room<PhysioParkRoom["state"]>) {
         super("physio-park");
@@ -71,7 +77,6 @@ class PhysioParkScene extends Phaser.Scene {
         };
 
         this.input_ = this.room.input<MoveInput>({ mode: "reliable" });
-        this.sendInput(0, false);
 
         this.goalText = this.add.text(LEVEL_WIDTH / 2, 40, "Goal reached!", {
             fontFamily: "sans-serif",
@@ -103,8 +108,12 @@ class PhysioParkScene extends Phaser.Scene {
         const moveX = (held(this.keys.right) ? 1 : 0) - (held(this.keys.left) ? 1 : 0);
         const jump = held(this.keys.jump);
 
-        if (moveX !== this.lastSent.moveX || jump !== this.lastSent.jump) {
+        // One input per simulation tick, independent of the monitor's frame rate,
+        // so the server steps exactly once per input (what prediction relies on).
+        this.inputAccumulator = Math.min(this.inputAccumulator + delta, STEP_MS * MAX_STEPS_PER_FRAME);
+        while (this.inputAccumulator >= STEP_MS) {
             this.sendInput(moveX, jump);
+            this.inputAccumulator -= STEP_MS;
         }
 
         // Ease each drawn player toward its latest server position.
@@ -138,7 +147,6 @@ class PhysioParkScene extends Phaser.Scene {
         this.input_.data.moveX = moveX as -1 | 0 | 1;
         this.input_.data.jump = jump;
         this.input_.send();
-        this.lastSent = { moveX, jump };
     }
 
     private drawLevel() {

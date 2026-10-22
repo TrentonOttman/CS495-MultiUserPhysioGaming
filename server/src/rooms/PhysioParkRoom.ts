@@ -1,36 +1,41 @@
-import { Client, type StepContext } from "colyseus";
+import type { Client } from "colyseus";
 import { LobbyCapableRoom } from "./base/LobbyCapableRoom.js";
 import { PhysioParkState, Player, MoveInput } from "./schema/PhysioParkState.js";
 import { Body, PhysicsWorld, Rect } from "../shared/physioPark/physioParkMovement.js";
-import { COYOTE_TIME, DT, GRAVITY, JUMP_SPEED, MAX_FALL_SPEED, MOVE_SPEED, PLAYER_HEIGHT, PLAYER_WIDTH, TICK_RATE } from "../shared/physioPark/physioParkConstants.js";
-import { SOLIDS, LAVA, GOAL, spawnPoint } from "../shared/physioPark/physioParkLevel.js";
+import {
+    COYOTE_TIME,
+    GRAVITY,
+    JUMP_SPEED,
+    LEVEL_TRANSITION_DELAY_MS,
+    MAX_FALL_SPEED,
+    MOVE_SPEED,
+    PLAYER_HEIGHT,
+    PLAYER_HEIGHT_HALF,
+    PLAYER_WIDTH,
+    PLAYER_WIDTH_HALF,
+    TICK_RATE,
+} from "../shared/physioPark/physioParkConstants.js";
+import { PHYSIO_PARK_LEVELS, type ResolvedPhysioParkLevel } from "../shared/physioPark/physioParkLevel.js";
 import { validateDisplayName } from "../shared/displayName.ts";
 import { PlayerInfo } from "./schema/LobbyState.ts";
-
-/** How far below the lava's surface a player's feet must sink before respawning. */
-const LAVA_DEPTH = 10;
 
 export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput> {
     maxClients = 8;
     state = new PhysioParkState();
 
     private world = new PhysicsWorld({ x: 0, y: GRAVITY });
-
     private playerMap = new Map<string, Body>();
+    private sessionByBody = new Map<Body, string>();
+    private currentLevelIndex = 0;
+    private transitionScheduled = false;
+    private inputLockedUntilFresh = new Set<string>();
 
-    /**
-     * State updates 30 times a second. The client smooths between updates, so
-     * movement looks fluid without sending a patch every 60 Hz tick.
-     */
+    /** State updates 30 times a second; clients smooth between patches. */
     patchRate = 1000 / 30;
 
     /**
-     * Per-client input buffer. `sanitize` clamps `moveX` as it is decoded —
-     * never trust the wire.
-     *
      * `idle` repeats a player's last input on ticks where nothing new arrived,
-     * so a held key keeps working even though the client only sends inputs when
-     * they change.
+     * so a held key keeps working even though the client only sends changes.
      */
     inputs = this.defineInput(MoveInput, {
         bufferMaxSize: 64,
@@ -38,62 +43,31 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         idle: ({ latest }) => latest ?? true,
     });
 
-    /** Each player's spawn slot, so respawning puts them back where they started. */
+    /** Each player's spawn slot is preserved across every level. */
     private spawnIndex = new Map<string, number>();
     private joinCount = 0;
 
-    /**
-     * Runs after `LobbyCapableRoom` has validated and applied the lobby
-     * configuration, so capacity and visibility are already set.
-     */
-    protected async onLobbyCreate(): Promise<void> {
-        this.setFixedTimestep((ctx) => this.step(ctx), TICK_RATE);
-
-        for (let s of SOLIDS) {
-            this.world.add(
-                new Body(new Rect(s.x, s.y, s.width, s.height), { x: 0, y: 0 }, true), // solid platform
-            );
-        }
-
-        const lava = this.world.add(
-            new Body(new Rect(LAVA.x, LAVA.y, LAVA.width, LAVA.height), { x: 0, y: 0 }, true, true), // sensor
-        );
-        lava.tags.add("lava");
-
-        const goal = this.world.add(
-            new Body(new Rect(GOAL.x, GOAL.y - GOAL.height, GOAL.width, GOAL.height), { x: 0, y: 0 }, true, true), // sensor
-        );
-        goal.tags.add("goal");
-
-        this.world.addOverlapRule({
-            actorTag: "player",
-            targetTag: "lava",
-            handle: (player) => {
-                const spawn = spawnPoint(1);
-                player.rect.x = spawn.x;
-                player.rect.y = spawn.y;
-                player.velocity = { x: 0, y: 0 };
-            },
-        });
-
-        this.world.addOverlapRule({
-            actorTag: "player",
-            targetTag: "goal",
-            handle: () => {
-                this.state.goalReached = true;
-            },
-        });
+    private get currentLevel(): ResolvedPhysioParkLevel {
+        return PHYSIO_PARK_LEVELS[this.currentLevelIndex];
     }
 
-    onJoin(client: Client, options:any) {
-        console.log(client.sessionId, "joined!");
+    /** Runs after lobby options have been validated and applied. */
+    protected async onLobbyCreate(): Promise<void> {
+        this.state.levelNumber = 1;
+        this.state.levelPhase = "playing";
+        this.setFixedTimestep(() => this.step(), TICK_RATE);
+        this.rebuildWorld();
+    }
 
+    onJoin(client: Client, options: any) {
         let rawName = options?.displayName;
         if (!rawName || typeof rawName !== "string" || rawName.trim() === "") {
             rawName = `Player ${this.state.lobbyPlayers.size + 1}`;
         }
         const nameResult = validateDisplayName(rawName);
-        const finalDisplayName = nameResult.ok ? nameResult.displayName : `Player ${this.state.lobbyPlayers.size + 1}`;
+        const finalDisplayName = nameResult.ok
+            ? nameResult.displayName
+            : `Player ${this.state.lobbyPlayers.size + 1}`;
         const playerInfo = new PlayerInfo();
         playerInfo.displayName = finalDisplayName;
         this.state.lobbyPlayers.set(client.sessionId, playerInfo);
@@ -104,8 +78,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
 
         const index = this.joinCount++;
         this.spawnIndex.set(client.sessionId, index);
-
-        const spawn = spawnPoint(index);
+        const spawn = this.currentLevel.spawnPoint(index);
         this.state.players.set(client.sessionId, new Player({
             x: spawn.x,
             y: spawn.y,
@@ -115,82 +88,242 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             color: index % 8,
         }));
 
-        const player = this.world.add(new Body(new Rect(spawn.x, spawn.y, PLAYER_WIDTH, PLAYER_HEIGHT)));
-        player.tags.add("player");
-        this.playerMap.set(client.sessionId, player);
+        const body = new Body(
+            new Rect(spawn.x, spawn.y, PLAYER_WIDTH, PLAYER_HEIGHT),
+            { x: 0, y: 0 },
+        );
+        body.tags.add("player");
+        this.playerMap.set(client.sessionId, body);
+        this.sessionByBody.set(body, client.sessionId);
+        this.world.add(body);
     }
 
-    /**
-     * Disconnect handling (holding a dropped player's seat, removing them once
-     * the window passes, ending the match when too few remain) lives in
-     * `LobbyCapableRoom`. This only forgets the player's spawn slot.
-     */
-    onLeave(client: Client, code: number) {
+    /** A dropped player's seat is retained, but its body cannot drift or block teammates. */
+    override onDrop(client: Client, code: number) {
+        super.onDrop(client, code);
+        this.lockInputUntilFresh(client.sessionId);
+        const body = this.playerMap.get(client.sessionId);
+        if (body) this.freezeBody(body);
+        const player = this.state.players.get(client.sessionId);
+        if (player) {
+            player.vx = 0;
+            player.vy = 0;
+        }
+    }
+
+    override onReconnect(client: Client) {
+        super.onReconnect(client);
+        this.lockInputUntilFresh(client.sessionId);
+        const body = this.playerMap.get(client.sessionId);
+        const player = this.state.players.get(client.sessionId);
+        if (!body || !player) return;
+
+        body.velocity = { x: 0, y: 0 };
+        body.timeSinceGrounded = 0;
+        body.isStatic = false;
+        body.isSensor = false;
+        player.vx = 0;
+        player.vy = 0;
+        player.grounded = false;
+    }
+
+    /** Remove bodies and spawn slots once the reconnection window expires. */
+    override onLeave(client: Client, code: number) {
         this.spawnIndex.delete(client.sessionId);
+        this.inputLockedUntilFresh.delete(client.sessionId);
+        const body = this.playerMap.get(client.sessionId);
+        if (body) {
+            this.world.remove(body);
+            this.sessionByBody.delete(body);
+            this.playerMap.delete(client.sessionId);
+        }
         super.onLeave(client, code);
     }
 
     onDispose() {
+        this.transitionScheduled = false;
         console.log("room", this.roomId, "disposing...");
     }
 
     /**
-     * One world step per tick: every player takes exactly one input (`next()`,
-     * the shared-world primitive), then the shared platformer physics moves
-     * everyone together so players can collide with and stand on each other.
-     *
-     * The schema stores flat `x, y, vx, vy` fields while the physics works on
-     * `position` / `velocity` objects, so each player is copied into a plain
-     * physics body, stepped, and copied back.
+     * Keep simulating movement through the completion display. The goal is
+     * evaluated only while playing, so leaving it cannot cancel a transition.
      */
-    private step(ctx: StepContext) {
-        //         const input = this.inputs.get(sessionId).next();
+    private step() {
         for (const [sessionId, player] of this.state.players) {
+            const body = this.playerMap.get(sessionId);
+            if (!body) continue;
+
+            if (!player.connected) {
+                this.freezeBody(body);
+                player.vx = 0;
+                player.vy = 0;
+                continue;
+            }
+
+            body.isStatic = false;
+            body.isSensor = false;
             const channel = this.inputs.get(sessionId);
-            if (!channel) { continue; }
+            const canJump = body.timeSinceGrounded <= COYOTE_TIME;
 
-            const playerBody = this.playerMap.get(sessionId);
-            const canJump = playerBody.timeSinceGrounded <= COYOTE_TIME;
-
-            for (const input of channel) {
-                player.vx = input.moveX * MOVE_SPEED;
-
-                if (input.jump && canJump) {
-                    player.vy = -1 * JUMP_SPEED;
-                    playerBody.timeSinceGrounded += COYOTE_TIME + 1;
+            if (this.inputLockedUntilFresh.has(sessionId)) {
+                if (!channel || channel.size === 0) {
+                    player.vx = 0;
+                    body.velocity = { x: 0, y: player.vy };
+                    continue;
                 }
+                this.inputLockedUntilFresh.delete(sessionId);
+            }
 
-                // Cut off jump early when not holding jump
-                const jumping = player.vy < 0 && playerBody.timeSinceGrounded > COYOTE_TIME;
-                if (jumping && !input.jump) {
-                    player.vy = 0;
-                }
+            if (channel) {
+                for (const input of channel) {
+                    player.vx = input.moveX * MOVE_SPEED;
 
-                if (player.vy >= MAX_FALL_SPEED) {
-                    player.vy = MAX_FALL_SPEED;
+                    if (input.jump && canJump) {
+                        player.vy = -JUMP_SPEED;
+                        body.timeSinceGrounded += COYOTE_TIME + 1;
+                    }
+
+                    // Cut off a jump early when jump is released.
+                    const jumping = player.vy < 0 && body.timeSinceGrounded > COYOTE_TIME;
+                    if (jumping && !input.jump) player.vy = 0;
+                    if (player.vy >= MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED;
                 }
             }
 
-            playerBody.velocity = { x: player.vx, y: player.vy };
+            body.velocity = { x: player.vx, y: player.vy };
         }
 
         this.world.step();
 
         for (const [sessionId, player] of this.state.players) {
-            const channel = this.inputs.get(sessionId);
-            if (!channel) { continue; }
+            const body = this.playerMap.get(sessionId);
+            if (!body) continue;
 
-            const playerBody = this.playerMap.get(sessionId);
+            player.x = body.rect.x;
+            player.y = body.rect.y;
+            player.vx = body.velocity.x;
+            player.vy = body.velocity.y;
+            player.grounded = body.timeSinceGrounded === 0;
+        }
 
-            player.x = playerBody.rect.x;
-            player.y = playerBody.rect.y;
+        const activePlayers = [...this.state.players.values()]
+            .filter((player) => player.connected)
+            .map((player) => ({
+                x: player.x + PLAYER_WIDTH_HALF,
+                y: player.y + PLAYER_HEIGHT_HALF,
+            }));
 
-            player.vx = playerBody.velocity.x;
-            player.vy = playerBody.velocity.y;
+        if (this.state.levelPhase === "playing" && this.currentLevel.isComplete(activePlayers)) {
+            this.beginLevelTransition();
         }
     }
 
-    // Immediately kill room on restore to avoid crashing
+    private beginLevelTransition() {
+        if (this.state.levelPhase !== "playing" || this.transitionScheduled) return;
+
+        if (this.currentLevelIndex >= PHYSIO_PARK_LEVELS.length - 1) {
+            this.state.levelPhase = "completed";
+            return;
+        }
+
+        this.state.levelPhase = "transitioning";
+        this.transitionScheduled = true;
+        this.clock.setTimeout(() => {
+            if (!this.transitionScheduled || this.state.levelPhase !== "transitioning") return;
+            this.transitionScheduled = false;
+            this.loadLevel(this.currentLevelIndex + 1);
+        }, LEVEL_TRANSITION_DELAY_MS);
+    }
+
+    private loadLevel(levelIndex: number) {
+        if (levelIndex < 0 || levelIndex >= PHYSIO_PARK_LEVELS.length) {
+            this.state.levelPhase = "completed";
+            return;
+        }
+
+        this.currentLevelIndex = levelIndex;
+        this.state.levelNumber = levelIndex + 1;
+
+        for (const [sessionId, player] of this.state.players) {
+            const body = this.playerMap.get(sessionId);
+            if (!body) continue;
+
+            const spawn = this.currentLevel.spawnPoint(this.spawnIndex.get(sessionId) ?? 0);
+            body.rect.x = spawn.x;
+            body.rect.y = spawn.y;
+            body.velocity = { x: 0, y: 0 };
+            body.timeSinceGrounded = 0;
+            body.isStatic = !player.connected;
+            body.isSensor = !player.connected;
+
+            player.x = spawn.x;
+            player.y = spawn.y;
+            player.vx = 0;
+            player.vy = 0;
+            player.grounded = false;
+        }
+
+        this.lockAllInputsUntilFresh();
+        this.rebuildWorld();
+        this.state.levelPhase = "playing";
+    }
+
+    private freezeBody(body: Body) {
+        body.velocity = { x: 0, y: 0 };
+        body.isStatic = true;
+        body.isSensor = true;
+    }
+
+    private lockInputUntilFresh(sessionId: string) {
+        this.inputs.get(sessionId).clear();
+        this.inputLockedUntilFresh.add(sessionId);
+    }
+
+    private lockAllInputsUntilFresh() {
+        for (const sessionId of this.state.players.keys()) {
+            this.lockInputUntilFresh(sessionId);
+        }
+    }
+
+    /** Rebuild only level geometry; session and player bodies remain owned by this room. */
+    private rebuildWorld() {
+        const level = this.currentLevel;
+        this.world = new PhysicsWorld({ x: 0, y: GRAVITY });
+
+        for (const solid of level.solids) {
+            this.world.add(new Body(new Rect(solid.x, solid.y, solid.width, solid.height), { x: 0, y: 0 }, true));
+        }
+
+        const lava = this.world.add(
+            new Body(new Rect(level.lava.x, level.lava.y, level.lava.width, level.lava.height), { x: 0, y: 0 }, true, true),
+        );
+        lava.tags.add("lava");
+
+        this.world.addOverlapRule({
+            actorTag: "player",
+            targetTag: "lava",
+            handle: (body) => this.respawnFromLava(body),
+        });
+
+        for (const body of this.playerMap.values()) this.world.add(body);
+    }
+
+    private respawnFromLava(body: Body) {
+        if (body.isSensor) return;
+        const sessionId = this.sessionByBody.get(body);
+        if (!sessionId) return;
+        const player = this.state.players.get(sessionId);
+        if (!player?.connected) return;
+
+        const spawn = this.currentLevel.spawnPoint(this.spawnIndex.get(sessionId) ?? 0);
+        body.rect.x = spawn.x;
+        body.rect.y = spawn.y;
+        body.velocity = { x: 0, y: 0 };
+        body.timeSinceGrounded = 0;
+    }
+
+    // Immediately kill the room on restore to avoid crashing on stale physics state.
     async onRestoreRoom() {
         await this.disconnect();
     }

@@ -303,6 +303,13 @@ export class PhysicsWorld {
         return body;
     }
 
+    remove(body: Body): boolean {
+        const index = this.bodies.indexOf(body);
+        if (index < 0) return false;
+        this.bodies.splice(index, 1);
+        return true;
+    }
+
     addOverlapRule(rule: OverlapRule): void {
         this.overlapRules.push(rule);
     }

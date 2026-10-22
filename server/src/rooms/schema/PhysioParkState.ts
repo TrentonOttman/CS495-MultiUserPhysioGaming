@@ -17,7 +17,7 @@ export const MoveInput = schema({
 export type MoveInput = SchemaType<typeof MoveInput>;
 
 export const Player = schema({
-    /** Center of the player, in pixels. */
+    /** Top-left corner of the player's collision box, in pixels. */
     x: t.number(),
     y: t.number(),
     vx: t.number(),
@@ -31,12 +31,17 @@ export const Player = schema({
 });
 export type Player = SchemaType<typeof Player>;
 
+export type PhysioParkLevelPhase = "playing" | "transitioning" | "completed";
+
 export const PhysioParkState = LobbyState.extend({
 
     players: t.map(Player),
 
-    /** Set once any player stands on the goal ledge. */
-    goalReached: t.boolean().default(false),
+    /** One-based index of the level currently loaded in the room. */
+    levelNumber: t.uint8().default(1),
+
+    /** Server-authoritative phase shared by every client. */
+    levelPhase: t.string<PhysioParkLevelPhase>().default("playing"),
 
 }, "PhysioParkState");
 export type PhysioParkState = SchemaType<typeof PhysioParkState>;

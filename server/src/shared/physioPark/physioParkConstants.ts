@@ -7,6 +7,9 @@
 export const TICK_RATE = 60;
 export const DT = 1 / TICK_RATE;
 
+/** Pause shown to every player before loading the next level. */
+export const LEVEL_TRANSITION_DELAY_MS = 2000;
+
 export const RESOLUTION_X = 320;
 export const RESOLUTION_Y = 180;
 
@@ -24,8 +27,9 @@ export const MAX_FALL_SPEED = 8 * PIXELS_PER_METER;
 /** Horizontal walking speed, in pixels per second. */
 export const MOVE_SPEED = 5 * PIXELS_PER_METER;
 
-/** Upward speed at the start of a jump. Jump height ≈ JUMP_SPEED² / (2 × GRAVITY) ≈ 117 px. */
+/** Ideal jump height in pixels. */
 export const JUMP_HEIGHT = 3 * PIXELS_PER_METER;
+/** Initial upward speed, calculated for the ideal jump height above. */
 export const JUMP_SPEED = Math.sqrt(2 * GRAVITY * JUMP_HEIGHT);
 
 export const PLAYER_WIDTH = 10;

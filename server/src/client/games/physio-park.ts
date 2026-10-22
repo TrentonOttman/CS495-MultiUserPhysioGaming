@@ -35,7 +35,13 @@ const STEP_MS = 1000 / TICK_RATE;
 /** Never send more than this many catch-up inputs in one frame (e.g. after a frozen tab). */
 const MAX_STEPS_PER_FRAME = 5;
 
-const JumpSensorThreshold = 0.7; //Threshold for sensor value to cause a jump
+/** Milliseconds per simulation tick. The client sends exactly one input per tick. */
+const STEP_MS = 1000 / TICK_RATE;
+
+/** Never send more than this many catch-up inputs in one frame (e.g. after a frozen tab). */
+const MAX_STEPS_PER_FRAME = 5;
+
+const JumpSensorThreshold = 0.00001; //Threshold for sensor value to cause a jump
 
 /**
  * Draws the game. It does not simulate anything: the server runs the shared
@@ -110,6 +116,7 @@ class PhysioParkScene extends Phaser.Scene {
         const held = (keys: Phaser.Input.Keyboard.Key[]) => keys.some((k) => k.isDown);
         const moveX = (held(this.keys.right) ? 1 : 0) - (held(this.keys.left) ? 1 : 0);
         const jump = held(this.keys.jump) || (getData() > JumpSensorThreshold);
+        console.log(getData());
 
         // One input per simulation tick, independent of the monitor's frame rate,
         // so the server steps exactly once per input (what prediction relies on).

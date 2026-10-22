@@ -43,5 +43,13 @@ export const PhysioParkState = LobbyState.extend({
     /** Server-authoritative phase shared by every client. */
     levelPhase: t.string<PhysioParkLevelPhase>().default("playing"),
 
+    /** Replicated state for the one-use button and falling crate on level two. */
+    buttonPressed: t.boolean().default(false),
+    /** Current server-synchronized frame of the button's press animation. */
+    buttonPressFrame: t.uint8().default(0),
+    crateDropped: t.boolean().default(false),
+    crateX: t.number().default(0),
+    crateY: t.number().default(0),
+
 }, "PhysioParkState");
 export type PhysioParkState = SchemaType<typeof PhysioParkState>;

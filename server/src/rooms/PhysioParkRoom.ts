@@ -16,6 +16,7 @@ import {
     TICK_RATE,
 } from "../shared/physioPark/physioParkConstants.js";
 import { PHYSIO_PARK_LEVELS, type ResolvedPhysioParkLevel } from "../shared/physioPark/physioParkLevel.js";
+import { getSpriteCollisionRects, PHYSIO_PARK_ANIMATIONS } from "../shared/physioPark/physioParkAnimations.js";
 import { validateDisplayName } from "../shared/displayName.ts";
 import { PlayerInfo } from "./schema/LobbyState.ts";
 
@@ -29,6 +30,9 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     private currentLevelIndex = 0;
     private transitionScheduled = false;
     private inputLockedUntilFresh = new Set<string>();
+    private crateBody: Body | undefined;
+    private buttonBody: Body | undefined;
+    private buttonPressTick = 0;
 
     /** State updates 30 times a second; clients smooth between patches. */
     patchRate = 1000 / 30;
@@ -191,10 +195,40 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
                 }
             }
 
+            const conveyor = this.currentLevel.conveyor;
+            if (conveyor && this.isStandingOn(body, conveyor.surface)) {
+                player.vx += conveyor.pushSpeed;
+            }
+
             body.velocity = { x: player.vx, y: player.vy };
         }
 
+        const button = this.currentLevel.button;
+        const playersOnButtonBeforeStep = new Set<string>();
+        if (button) {
+            const surface = getButtonSurface(button, this.state.buttonPressFrame);
+            for (const [sessionId, player] of this.state.players) {
+                const body = this.playerMap.get(sessionId);
+                if (player.connected && body && this.isCenteredOnButton(body, surface)) {
+                    playersOnButtonBeforeStep.add(sessionId);
+                }
+            }
+        }
+
+        this.advanceButtonPress();
         this.world.step();
+
+        if (button && !this.state.buttonPressed) {
+            const surface = getButtonSurface(button, this.state.buttonPressFrame);
+            const landedOnButton = [...this.state.players].some(([sessionId, player]) => {
+                if (!player.connected) return false;
+                const body = this.playerMap.get(sessionId);
+                return body !== undefined
+                    && !playersOnButtonBeforeStep.has(sessionId)
+                    && this.isCenteredOnButton(body, surface);
+            });
+            if (landedOnButton) this.dropCrateFromButton();
+        }
 
         for (const [sessionId, player] of this.state.players) {
             const body = this.playerMap.get(sessionId);
@@ -207,6 +241,11 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             player.grounded = body.timeSinceGrounded === 0;
         }
 
+        if (this.crateBody) {
+            this.state.crateX = this.crateBody.rect.x;
+            this.state.crateY = this.crateBody.rect.y;
+        }
+
         const activePlayers = [...this.state.players.values()]
             .filter((player) => player.connected)
             .map((player) => ({
@@ -214,7 +253,9 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
                 y: player.y + PLAYER_HEIGHT_HALF,
             }));
 
-        if (this.state.levelPhase === "playing" && this.currentLevel.isComplete(activePlayers)) {
+        if (this.state.levelPhase === "playing" && this.currentLevel.isComplete(activePlayers, {
+            buttonPressed: this.state.buttonPressed,
+        })) {
             this.beginLevelTransition();
         }
     }
@@ -290,9 +331,35 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     private rebuildWorld() {
         const level = this.currentLevel;
         this.world = new PhysicsWorld({ x: 0, y: GRAVITY });
+        this.crateBody = undefined;
+        this.buttonBody = undefined;
+        this.buttonPressTick = 0;
+        this.state.buttonPressed = false;
+        this.state.buttonPressFrame = 0;
+        this.state.crateDropped = false;
+        this.state.crateX = 0;
+        this.state.crateY = 0;
 
         for (const solid of level.solids) {
             this.world.add(new Body(new Rect(solid.x, solid.y, solid.width, solid.height), { x: 0, y: 0 }, true));
+        }
+
+        if (level.button) {
+            const surface = getButtonSurface(level.button, 0);
+            this.buttonBody = this.world.add(new Body(
+                new Rect(surface.x, surface.y, surface.width, surface.height),
+                { x: 0, y: 0 },
+                true,
+            ));
+
+            const crate = level.button.crate;
+            this.crateBody = this.world.add(new Body(
+                new Rect(crate.x, crate.y, crate.width, crate.height),
+                { x: 0, y: 0 },
+                true,
+            ));
+            this.state.crateX = crate.x;
+            this.state.crateY = crate.y;
         }
 
         const lava = this.world.add(
@@ -307,6 +374,54 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         });
 
         for (const body of this.playerMap.values()) this.world.add(body);
+    }
+
+    private isStandingOn(body: Body, surface: { x: number; y: number; width: number; height: number }): boolean {
+        const feetY = body.rect.y + body.rect.height;
+        const horizontalOverlap = body.rect.x < surface.x + surface.width
+            && body.rect.x + body.rect.width > surface.x;
+        return horizontalOverlap && Math.abs(feetY - surface.y) <= 1.5;
+    }
+
+    private isCenteredOnButton(body: Body, surface: { x: number; y: number; width: number; height: number }): boolean {
+        const playerCenterX = body.rect.x + body.rect.width / 2;
+        const feetY = body.rect.y + body.rect.height;
+        return playerCenterX >= surface.x
+            && playerCenterX < surface.x + surface.width
+            && Math.abs(feetY - surface.y) <= 1.5;
+    }
+
+    /** Landing on the button activates its one-time crate drop. */
+    private dropCrateFromButton() {
+        if (!this.currentLevel.button || !this.buttonBody || !this.crateBody || this.state.buttonPressed) return;
+        this.state.buttonPressed = true;
+        this.state.buttonPressFrame = 0;
+        this.buttonPressTick = 0;
+        this.state.crateDropped = true;
+        this.crateBody.isStatic = false;
+        this.crateBody.velocity = { x: 0, y: 0 };
+        this.crateBody.timeSinceGrounded = 0;
+    }
+
+    /** Keep the server collision surface on the same frame as the rendered cap. */
+    private advanceButtonPress() {
+        const button = this.currentLevel.button;
+        if (!button || !this.buttonBody || !this.state.buttonPressed) return;
+        const animation = PHYSIO_PARK_ANIMATIONS[button.sprite];
+        const finalFrame = animation.frames.length - 1;
+        if (finalFrame <= 0 || this.state.buttonPressFrame >= finalFrame) return;
+
+        this.buttonPressTick++;
+        const ticksPerFrame = Math.ceil(TICK_RATE / animation.frameRate);
+        if (this.buttonPressTick < ticksPerFrame) return;
+        this.buttonPressTick = 0;
+        this.state.buttonPressFrame++;
+
+        const surface = getButtonSurface(button, this.state.buttonPressFrame);
+        this.buttonBody.rect.x = surface.x;
+        this.buttonBody.rect.y = surface.y;
+        this.buttonBody.rect.width = surface.width;
+        this.buttonBody.rect.height = surface.height;
     }
 
     private respawnFromLava(body: Body) {
@@ -327,4 +442,16 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     async onRestoreRoom() {
         await this.disconnect();
     }
+}
+
+function getButtonSurface(
+    button: NonNullable<ResolvedPhysioParkLevel["button"]>,
+    playbackFrame: number,
+) {
+    const sprite = PHYSIO_PARK_ANIMATIONS[button.sprite];
+    const surface = getSpriteCollisionRects(sprite, button.position, playbackFrame)[0];
+    if (!surface) {
+        throw new Error(`Missing collision shape for button sprite "${button.sprite}" at frame ${playbackFrame}`);
+    }
+    return surface;
 }

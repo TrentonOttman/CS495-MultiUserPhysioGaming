@@ -18,6 +18,12 @@ export interface PhysioParkElements {
 
 }
 
+/** Root node is sized as RESOLUTION_X/Y * RENDER_SCALE.
+ *  Add UI elements to the `ui` container to utilize the higher resolution */
+const RENDER_SCALE = 4;
+const UI_RESOLUTION_X = RESOLUTION_X * RENDER_SCALE;
+const UI_RESOLUTION_Y = RESOLUTION_Y * RENDER_SCALE;
+
 /** One color per player slot (placeholders until the character sprites land). */
 const PLAYER_COLORS = [0x7ec97e, 0x7eb6e0, 0xe09ad8, 0xf2c14e, 0xe0705a, 0x9b7ee0, 0x5ec4b6, 0xd9a066];
 
@@ -45,6 +51,10 @@ class PhysioParkScene extends Phaser.Scene {
     private input_: InputHandle<MoveInput>;
     private goalText: Phaser.GameObjects.Text;
 
+    private worldCamera!: Phaser.Cameras.Scene2D.Camera;
+    private uiCamera!: Phaser.Cameras.Scene2D.Camera;
+    private ui!: Phaser.GameObjects.Container;
+
     private playerEntities = new Map<string, any>();
 
     private keys: {
@@ -61,13 +71,32 @@ class PhysioParkScene extends Phaser.Scene {
         this.room = room;
     }
 
+    // Shortcut to have object ignored by ui camera
+    private addWorld<T extends Phaser.GameObjects.GameObject>(object: T): T {
+        this.uiCamera.ignore(object);
+        return object;
+    }
+
     preload() {
-        this.load.image('robo_pico', 'assets/RoboPico1.png');
+        this.load.spritesheet("idleSheet", "assets/RoboPicoIdle.png", { frameWidth: 16, frameHeight: 16 });
+        this.load.spritesheet("walkSheet", "assets/RoboPicoWalk.png", { frameWidth: 16, frameHeight: 16 });
+        this.load.spritesheet("jumpSheet", "assets/RoboPicoJump.png", { frameWidth: 16, frameHeight: 16 });
+
+        this.load.spritesheet("flagSheet", "assets/FlagSheet.png", { frameWidth: 16, frameHeight: 16 });
+        this.load.image('flagPole', 'assets/FlagPole.png');
     }
 
     create() {
-        this.drawLevel();
+        // Camera setup
+        this.worldCamera = this.cameras.main.setZoom(RENDER_SCALE);
+        this.worldCamera.centerOn(RESOLUTION_X / 2, RESOLUTION_Y / 2);
 
+        this.uiCamera = this.cameras.add(0, 0, UI_RESOLUTION_X, UI_RESOLUTION_Y);
+
+        this.ui = this.add.container(0, 0);
+        this.worldCamera.ignore(this.ui);
+
+        // Input setup
         const K = Phaser.Input.Keyboard.KeyCodes;
         const kb = this.input.keyboard;
         this.keys = {
@@ -78,19 +107,21 @@ class PhysioParkScene extends Phaser.Scene {
 
         this.input_ = this.room.input<MoveInput>({ mode: "reliable" });
 
-        this.goalText = this.add.text(LEVEL_WIDTH / 2, 40, "Goal reached!", {
+        this.goalText = this.add.text( UI_RESOLUTION_X / 2, 160, "Goal reached!", {
             fontFamily: "sans-serif",
-            fontSize: "24px",
+            fontSize: "64px",
             fontStyle: "bold",
             color: "#2e7d32",
         }).setOrigin(0.5).setVisible(false);
+        this.ui.add(this.goalText);
 
         const callbacks = Callbacks.get(this.room);
 
         callbacks.onAdd("players", (player: Player, sessionId: string) => {
-            const entity = this.add.image(player.x, player.y, 'robo_pico').setOrigin(0);
+            const entity = this.addWorld(
+                this.add.sprite(player.x, player.y, 'idleSheet').setOrigin(0)
+            );
             
-            console.log(player.color);
             const tint = PLAYER_COLORS[player.color % PLAYER_COLORS.length];
             entity.setTint(tint);
             
@@ -101,6 +132,38 @@ class PhysioParkScene extends Phaser.Scene {
             this.playerEntities.get(sessionId)?.destroy();
             this.playerEntities.delete(sessionId);
         });
+
+        // Setup animations
+
+        this.anims.create({
+            key: "idle",
+            frames: this.anims.generateFrameNumbers("idleSheet", { start: 0, end: 0 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: "walk",
+            frames: this.anims.generateFrameNumbers("walkSheet", { start: 0, end: 4 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: "jump",
+            frames: this.anims.generateFrameNumbers("jumpSheet", { start: 0, end: 0 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: "flag",
+            frames: this.anims.generateFrameNumbers("flagSheet", { start: 0, end: 4 }),
+            frameRate: 8,
+            repeat: -1
+        });
+
+        this.drawLevel();
     }
 
     update(_time: number, delta: number) {
@@ -132,12 +195,23 @@ class PhysioParkScene extends Phaser.Scene {
                 );
             }
 
-            // Don't change sprite direction when velocity is zero.
-            if (player.vx < 0) {
-                sprite.setFlipX(true);
-            } else if (player.vx > 0) {
-                sprite.setFlipX(false);
+            // Update player animation state
+            const isMoving = Math.abs(player.vx) >= 0.0001;
+            const isMovingLeft = player.vx < 0;
+            const isAirborn = player.timeSinceGrounded > 0;
+
+            let animation = "idle";
+
+            if (isMoving) {
+                animation = "walk";
+                sprite.setFlipX(isMovingLeft);
             }
+
+            if (isAirborn) {
+                animation = "jump";
+            }
+
+            sprite.play(animation, true);
         }
 
         this.goalText.setVisible(this.room.state.goalReached);
@@ -150,16 +224,26 @@ class PhysioParkScene extends Phaser.Scene {
     }
 
     private drawLevel() {
-        this.add.rectangle(LAVA.x, LAVA.y, LAVA.width, LAVA.height, 0xe8743b).setOrigin(0);
+        this.addWorld(
+            this.add.rectangle(LAVA.x, LAVA.y, LAVA.width, LAVA.height, 0xe8743b)
+        ).setOrigin(0);
 
         for (const s of SOLIDS) {
-            this.add.rectangle(s.x, s.y, s.width, s.height, 0x555555).setOrigin(0);
+            this.addWorld(
+                this.add.rectangle(s.x, s.y, s.width, s.height, 0x555555)
+            ).setOrigin(0);
         }
 
         // Goal flag on the high ledge.
-        const poleX = GOAL.x + GOAL.width - 30;
-        this.add.rectangle(poleX, GOAL.y - 40, 4, 40, 0x333333).setOrigin(0);
-        this.add.triangle(0, 0, poleX + 4, GOAL.y - 40, poleX + 24, GOAL.y - 32, poleX + 4, GOAL.y - 24, 0x33aa33).setOrigin(0);
+        const poleX = GOAL.x + GOAL.width / 2; // middle of GOAL platform;
+
+        this.addWorld(
+            this.add.sprite(poleX, GOAL.y, 'flagPole')
+        ).setOrigin(0.5, 1.0);
+
+        this.addWorld(
+            this.add.sprite(poleX, GOAL.y - 16, "flagSheet")
+        ).setOrigin(0.5, 1.0).play("flag");
     }
 }
 
@@ -189,8 +273,8 @@ export async function startPhysioPark(
 
     const config: Phaser.Types.Core.GameConfig = {
         type: Phaser.AUTO,
-        width: RESOLUTION_X,
-        height: RESOLUTION_Y,
+        width: RESOLUTION_X * RENDER_SCALE,
+        height: RESOLUTION_Y * RENDER_SCALE,
         backgroundColor: "#f4f1ea",
         parent: arena,
         pixelArt: true,

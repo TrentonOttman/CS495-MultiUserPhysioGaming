@@ -29,7 +29,7 @@ const PLAYER_COLORS = [0x7ec97e, 0x7eb6e0, 0xe09ad8, 0xf2c14e, 0xe0705a, 0x9b7ee
  */
 const SMOOTHING_MS = 40;
 
-const JumpSensorThreshold = 0.7; //Threshold for sensor value to cause a jump
+const JumpSensorThreshold = 0.00001; //Threshold for sensor value to cause a jump
 
 /**
  * Draws the game. It does not simulate anything: the server runs the shared
@@ -105,6 +105,7 @@ class PhysioParkScene extends Phaser.Scene {
         const held = (keys: Phaser.Input.Keyboard.Key[]) => keys.some((k) => k.isDown);
         const moveX = (held(this.keys.right) ? 1 : 0) - (held(this.keys.left) ? 1 : 0);
         const jump = held(this.keys.jump) || (getData() > JumpSensorThreshold);
+        console.log(getData());
 
         if (moveX !== this.lastSent.moveX || jump !== this.lastSent.jump) {
             this.sendInput(moveX, jump);

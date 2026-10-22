@@ -116,7 +116,6 @@ class PhysioParkScene extends Phaser.Scene {
         const held = (keys: Phaser.Input.Keyboard.Key[]) => keys.some((k) => k.isDown);
         const moveX = (held(this.keys.right) ? 1 : 0) - (held(this.keys.left) ? 1 : 0);
         const jump = held(this.keys.jump) || (getData() > JumpSensorThreshold);
-        console.log(getData());
 
         // One input per simulation tick, independent of the monitor's frame rate,
         // so the server steps exactly once per input (what prediction relies on).

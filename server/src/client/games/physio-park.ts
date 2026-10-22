@@ -62,12 +62,15 @@ class PhysioParkScene extends Phaser.Scene {
     }
 
     preload() {
-        this.load.image('robo_pico', 'assets/RoboPico1.png');
+        this.load.spritesheet("idleSheet", "assets/RoboPicoIdle.png", { frameWidth: 16, frameHeight: 16 });
+        this.load.spritesheet("walkSheet", "assets/RoboPicoWalk.png", { frameWidth: 16, frameHeight: 16 });
+        this.load.spritesheet("jumpSheet", "assets/RoboPicoJump.png", { frameWidth: 16, frameHeight: 16 });
+
+        this.load.spritesheet("flagSheet", "assets/FlagSheet.png", { frameWidth: 16, frameHeight: 16 });
+        this.load.image('flagPole', 'assets/FlagPole.png');
     }
 
     create() {
-        this.drawLevel();
-
         const K = Phaser.Input.Keyboard.KeyCodes;
         const kb = this.input.keyboard;
         this.keys = {
@@ -88,9 +91,8 @@ class PhysioParkScene extends Phaser.Scene {
         const callbacks = Callbacks.get(this.room);
 
         callbacks.onAdd("players", (player: Player, sessionId: string) => {
-            const entity = this.add.image(player.x, player.y, 'robo_pico').setOrigin(0);
+            const entity = this.add.sprite(player.x, player.y, 'idleSheet').setOrigin(0);
             
-            console.log(player.color);
             const tint = PLAYER_COLORS[player.color % PLAYER_COLORS.length];
             entity.setTint(tint);
             
@@ -101,6 +103,38 @@ class PhysioParkScene extends Phaser.Scene {
             this.playerEntities.get(sessionId)?.destroy();
             this.playerEntities.delete(sessionId);
         });
+
+        // Setup animations
+
+        this.anims.create({
+            key: "idle",
+            frames: this.anims.generateFrameNumbers("idleSheet", { start: 0, end: 0 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: "walk",
+            frames: this.anims.generateFrameNumbers("walkSheet", { start: 0, end: 4 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: "jump",
+            frames: this.anims.generateFrameNumbers("jumpSheet", { start: 0, end: 0 }),
+            frameRate: 10,
+            repeat: -1
+        });
+
+        this.anims.create({
+            key: "flag",
+            frames: this.anims.generateFrameNumbers("flagSheet", { start: 0, end: 4 }),
+            frameRate: 8,
+            repeat: -1
+        });
+
+        this.drawLevel();
     }
 
     update(_time: number, delta: number) {
@@ -132,12 +166,23 @@ class PhysioParkScene extends Phaser.Scene {
                 );
             }
 
-            // Don't change sprite direction when velocity is zero.
-            if (player.vx < 0) {
-                sprite.setFlipX(true);
-            } else if (player.vx > 0) {
-                sprite.setFlipX(false);
+            // Update player animation state
+            const isMoving = Math.abs(player.vx) >= 0.0001;
+            const isMovingLeft = player.vx < 0;
+            const isAirborn = player.timeSinceGrounded > 0;
+
+            let animation = "idle";
+
+            if (isMoving) {
+                animation = "walk";
+                sprite.setFlipX(isMovingLeft);
             }
+
+            if (isAirborn) {
+                animation = "jump";
+            }
+
+            sprite.play(animation, true);
         }
 
         this.goalText.setVisible(this.room.state.goalReached);
@@ -157,9 +202,12 @@ class PhysioParkScene extends Phaser.Scene {
         }
 
         // Goal flag on the high ledge.
-        const poleX = GOAL.x + GOAL.width - 30;
-        this.add.rectangle(poleX, GOAL.y - 40, 4, 40, 0x333333).setOrigin(0);
-        this.add.triangle(0, 0, poleX + 4, GOAL.y - 40, poleX + 24, GOAL.y - 32, poleX + 4, GOAL.y - 24, 0x33aa33).setOrigin(0);
+        const poleX = GOAL.x + GOAL.width / 2; // middle of GOAL platform;
+
+        this.add.sprite(poleX, GOAL.y, 'flagPole').setOrigin(0.5, 1.0);
+        this.add.sprite(poleX, GOAL.y - 16, "flagSheet")
+            .setOrigin(0.5, 1.0)
+            .play("flag");
     }
 }
 

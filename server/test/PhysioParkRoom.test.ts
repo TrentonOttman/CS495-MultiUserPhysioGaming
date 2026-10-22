@@ -13,12 +13,16 @@ import {
 } from "../src/shared/physioPark/physioParkConstants.js";
 import {
     allPlayersInsideGoalArea,
+    GROUND_Y,
     PHYSIO_PARK_LEVELS,
 } from "../src/shared/physioPark/physioParkLevel.js";
+import { getSpriteCollisionRects, PHYSIO_PARK_ANIMATIONS } from "../src/shared/physioPark/physioParkAnimations.js";
 import { getTestServer } from "./harness.js";
 
 const LOBBY_OPTIONS = { name: "Physics Test", gameId: "physio_park", maxPlayers: 4, isPrivate: false };
 const levelOne = PHYSIO_PARK_LEVELS[0];
+const levelTwo = PHYSIO_PARK_LEVELS[1];
+const STANDING_Y = GROUND_Y - PLAYER_HEIGHT;
 
 type TestRoomInternals = {
     playerMap: Map<string, Body>;
@@ -48,7 +52,7 @@ describe("physio_park_room", () => {
     function setPlayerCenter(room: { state: PhysioParkState }, sessionId: string, x: number, y: number) {
         const player = room.state.players.get(sessionId);
         const body = (room as unknown as TestRoomInternals).playerMap.get(sessionId);
-        assert.ok(player && body, `player ${sessionId} exists in the room`);
+        assert.ok(player && body, "player exists in the room");
 
         body.rect.x = x - PLAYER_WIDTH_HALF;
         body.rect.y = y - PLAYER_HEIGHT_HALF;
@@ -60,14 +64,86 @@ describe("physio_park_room", () => {
         player.vy = 0;
     }
 
-    function goalCenter() {
+    function goalCenter(level = levelOne) {
         return {
-            x: levelOne.goalArea.x + levelOne.goalArea.width / 2,
-            y: levelOne.goalArea.y + levelOne.goalArea.height / 2,
+            x: level.goalArea.x + level.goalArea.width / 2,
+            y: level.goalArea.y + level.goalArea.height / 2,
         };
     }
 
-    it("requires every active player to occupy the goal at the same time", async () => {
+    it("spawns joining players and lets them land on the ground", async () => {
+        const room = await colyseus.createRoom<PhysioParkState>("physio_park_room", LOBBY_OPTIONS);
+        const client1 = await colyseus.connectTo(room);
+        const client2 = await colyseus.connectTo(room);
+
+        await waitTicks(room, 20);
+
+        for (const client of [client1, client2]) {
+            const player = room.state.players.get(client.sessionId);
+            assert.ok(player, "a Player is created on join");
+            assert.ok(Math.abs(player.y - STANDING_Y) < 0.5, "player stands on the ground");
+            assert.strictEqual(player.grounded, true);
+            assert.strictEqual(player.timeSinceGrounded, 0);
+        }
+    });
+
+    it("keeps moving a player while the last input is held", async () => {
+        const room = await colyseus.createRoom<PhysioParkState>("physio_park_room", LOBBY_OPTIONS);
+        const client1 = await colyseus.connectTo(room);
+        await waitTicks(room, 10);
+
+        const player = room.state.players.get(client1.sessionId)!;
+        const startX = player.x;
+        const input = client1.input<MoveInput>({ mode: "reliable" });
+        input.data.moveX = 1;
+        input.data.jump = false;
+        input.send();
+        await waitTicks(room, 5);
+
+        assert.ok(player.x > startX, "the held input keeps moving the player");
+    });
+
+    it("jumps a grounded player", async () => {
+        const room = await colyseus.createRoom<PhysioParkState>("physio_park_room", LOBBY_OPTIONS);
+        const client1 = await colyseus.connectTo(room);
+        await waitTicks(room, 20);
+
+        const player = room.state.players.get(client1.sessionId)!;
+        assert.strictEqual(player.grounded, true);
+
+        const input = client1.input<MoveInput>({ mode: "reliable" });
+        input.data.moveX = 0;
+        input.data.jump = true;
+        input.send();
+        await room.waitForNextMessage();
+        await waitTicks(room, 3);
+
+        assert.ok(player.y < STANDING_Y - 0.5, "the player left the ground");
+        assert.strictEqual(player.grounded, false);
+    });
+
+    it("applies one buffered input per tick", async () => {
+        const room = await colyseus.createRoom<PhysioParkState>("physio_park_room", LOBBY_OPTIONS);
+        const client1 = await colyseus.connectTo(room);
+        await waitTicks(room, 10);
+
+        const player = room.state.players.get(client1.sessionId)!;
+        const input = client1.input<MoveInput>({ mode: "reliable" });
+        input.data.jump = false;
+        input.data.moveX = 1;
+        input.send();
+        input.data.moveX = 1;
+        input.send();
+        input.data.moveX = 0;
+        input.send();
+        await room.waitForNextMessage();
+
+        // The first tick after the burst applies the first buffered input.
+        await room.waitForNextTimestep();
+        assert.ok(player.vx > 0, "the first buffered input moves right");
+    });
+
+    it("requires every active player at the goal and completes levels in order", async () => {
         const point = goalCenter();
         const outside = { x: levelOne.goalArea.x - PLAYER_WIDTH, y: point.y };
 
@@ -93,7 +169,7 @@ describe("physio_park_room", () => {
         await waitTicks(room, 3);
         assert.ok(room.state.players.get(client1.sessionId)!.x > goalPlayerStartX, "a player can keep moving inside the goal");
 
-        // Earlier visits do not stick: both players must be inside together.
+        // Earlier visits do not count: the players must be inside together.
         setPlayerCenter(room, client1.sessionId, outside.x, outside.y);
         setPlayerCenter(room, client2.sessionId, point.x, point.y);
         await waitTicks(room, 2);
@@ -121,8 +197,8 @@ describe("physio_park_room", () => {
         assert.ok(room.state.players.has(client1.sessionId), "the room keeps the first session");
         assert.ok(room.state.players.has(client2.sessionId), "the room keeps the second session");
 
-        const spawn1 = PHYSIO_PARK_LEVELS[1].spawnPoint(0);
-        const spawn2 = PHYSIO_PARK_LEVELS[1].spawnPoint(1);
+        const spawn1 = levelTwo.spawnPoint(0);
+        const spawn2 = levelTwo.spawnPoint(1);
         assert.ok(Math.abs(room.state.players.get(client1.sessionId)!.x - spawn1.x) < 2);
         assert.ok(Math.abs(room.state.players.get(client2.sessionId)!.x - spawn2.x) < 2);
         for (const player of room.state.players.values()) {
@@ -132,10 +208,32 @@ describe("physio_park_room", () => {
         }
         await waitForState(() => client1.state.levelNumber === 2 && client2.state.levelNumber === 2);
 
-        const nextGoal = PHYSIO_PARK_LEVELS[1].goalArea;
-        const finalPoint = { x: nextGoal.x + nextGoal.width / 2, y: nextGoal.y + nextGoal.height / 2 };
-        setPlayerCenter(room, client1.sessionId, finalPoint.x, finalPoint.y);
-        setPlayerCenter(room, client2.sessionId, finalPoint.x, finalPoint.y);
+        // Level loading waits for each player to send a fresh input before movement resumes.
+        input.data.moveX = 0;
+        input.data.jump = false;
+        input.send();
+        await room.waitForNextMessage();
+        await waitTicks(room, 2);
+
+        // Drop one player onto the button so the test exercises Level 2's objective.
+        const button = levelTwo.button!;
+        const buttonSurface = getSpriteCollisionRects(
+            PHYSIO_PARK_ANIMATIONS[button.sprite],
+            button.position,
+            0,
+        )[0];
+        assert.ok(buttonSurface, "button frame has a collision surface");
+        const buttonBody = (room as unknown as TestRoomInternals).playerMap.get(client1.sessionId)!;
+        buttonBody.rect.x = buttonSurface.x + buttonSurface.width / 2 - PLAYER_WIDTH_HALF;
+        buttonBody.rect.y = buttonSurface.y - PLAYER_HEIGHT - 3;
+        buttonBody.velocity = { x: 0, y: 240 };
+        buttonBody.timeSinceGrounded = 1;
+        await waitTicks(room, 1);
+        assert.strictEqual(room.state.buttonPressed, true, "landing on the button drops the crate");
+
+        const finalPoint = goalCenter(levelTwo);
+        setPlayerCenter(room, client1.sessionId, finalPoint.x - 16, finalPoint.y);
+        setPlayerCenter(room, client2.sessionId, finalPoint.x + 16, finalPoint.y);
         await waitTicks(room, 2);
         assert.strictEqual(room.state.levelNumber, 2, "final completion does not increment the level");
         assert.strictEqual(room.state.levelPhase, "completed");
@@ -163,7 +261,6 @@ describe("physio_park_room", () => {
         await waitTicks(room, 2);
         assert.strictEqual(room.state.levelPhase, "transitioning", "the connected player can finish without a dropped seat");
 
-        // The room lifecycle hook restores the seat and leaves it movable during the transition.
         const reconnected = await colyseus.sdk.reconnect<PhysioParkState>(reconnectionToken);
         await reconnected.waitForInitialState();
         assert.strictEqual(reconnected.sessionId, client2.sessionId);
@@ -175,30 +272,4 @@ describe("physio_park_room", () => {
         assert.strictEqual(body.isSensor, false);
         assert.strictEqual(room.state.levelNumber, 2);
     });
-
-    it("spawns players and applies held movement and jump input", async () => {
-        const room = await colyseus.createRoom<PhysioParkState>("physio_park_room", LOBBY_OPTIONS);
-        const client1 = await colyseus.connectTo(room);
-        await waitTicks(room, 10);
-
-        const player = room.state.players.get(client1.sessionId)!;
-        assert.ok(player);
-        assert.strictEqual(player.grounded, true);
-
-        const startX = player.x;
-        const input = client1.input<MoveInput>({ mode: "reliable" });
-        input.data.moveX = 1;
-        input.data.jump = false;
-        input.send();
-        await waitTicks(room, 5);
-        assert.ok(player.x > startX, "a held horizontal input moves the player");
-
-        input.data.moveX = 0;
-        input.data.jump = true;
-        input.send();
-        await waitTicks(room, 2);
-        assert.ok(player.y < GROUND_STANDING_Y, "jump input moves the player off the ground");
-    });
 });
-
-const GROUND_STANDING_Y = 156 - PLAYER_HEIGHT;

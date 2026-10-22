@@ -1,20 +1,17 @@
-import type { Client } from "colyseus";
+import type { Client, StepContext } from "colyseus";
 import { LobbyCapableRoom } from "./base/LobbyCapableRoom.js";
 import { PhysioParkState, Player, MoveInput } from "./schema/PhysioParkState.js";
 import { Body, PhysicsWorld, Rect } from "../shared/physioPark/physioParkMovement.js";
 import {
-    COYOTE_TIME,
     GRAVITY,
-    JUMP_SPEED,
     LEVEL_TRANSITION_DELAY_MS,
-    MAX_FALL_SPEED,
-    MOVE_SPEED,
     PLAYER_HEIGHT,
     PLAYER_HEIGHT_HALF,
     PLAYER_WIDTH,
     PLAYER_WIDTH_HALF,
     TICK_RATE,
 } from "../shared/physioPark/physioParkConstants.js";
+import { applyPlayerInput, NO_INPUT } from "../shared/physioPark/physioParkInput.js";
 import { PHYSIO_PARK_LEVELS, type ResolvedPhysioParkLevel } from "../shared/physioPark/physioParkLevel.js";
 import { getSpriteCollisionRects, PHYSIO_PARK_ANIMATIONS } from "../shared/physioPark/physioParkAnimations.js";
 import { validateDisplayName } from "../shared/displayName.ts";
@@ -34,20 +31,16 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     private buttonBody: Body | undefined;
     private buttonPressTick = 0;
 
-    /** State updates 30 times a second; clients smooth between patches. */
+    /** Physics steps at 60 Hz; state patches are sent at 30 Hz. */
     patchRate = 1000 / 30;
 
-    /**
-     * `idle` repeats a player's last input on ticks where nothing new arrived,
-     * so a held key keeps working even though the client only sends changes.
-     */
+    /** One queued input is consumed per world tick. */
     inputs = this.defineInput(MoveInput, {
         bufferMaxSize: 64,
         sanitize: { moveX: [-1, 1] },
         idle: ({ latest }) => latest ?? true,
     });
 
-    /** Each player's spawn slot is preserved across every level. */
     private spawnIndex = new Map<string, number>();
     private joinCount = 0;
 
@@ -59,7 +52,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     protected async onLobbyCreate(): Promise<void> {
         this.state.levelNumber = 1;
         this.state.levelPhase = "playing";
-        this.setFixedTimestep(() => this.step(), TICK_RATE);
+        this.setFixedTimestep((ctx) => this.step(ctx), TICK_RATE);
         this.rebuildWorld();
     }
 
@@ -89,6 +82,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             vx: 0,
             vy: 0,
             grounded: false,
+            timeSinceGrounded: 0,
             color: index % 8,
         }));
 
@@ -129,6 +123,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         player.vx = 0;
         player.vy = 0;
         player.grounded = false;
+        player.timeSinceGrounded = 0;
     }
 
     /** Remove bodies and spawn slots once the reconnection window expires. */
@@ -150,10 +145,12 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     }
 
     /**
-     * Keep simulating movement through the completion display. The goal is
-     * evaluated only while playing, so leaving it cannot cancel a transition.
+     * Consume one input per tick, apply the shared movement rule, and step all
+     * bodies together. Level transitions continue to simulate movement while
+     * the completion message is visible.
      */
-    private step() {
+    private step(_ctx: StepContext) {
+        const conveyor = this.currentLevel.conveyor;
         for (const [sessionId, player] of this.state.players) {
             const body = this.playerMap.get(sessionId);
             if (!body) continue;
@@ -168,8 +165,6 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             body.isStatic = false;
             body.isSensor = false;
             const channel = this.inputs.get(sessionId);
-            const canJump = body.timeSinceGrounded <= COYOTE_TIME;
-
             if (this.inputLockedUntilFresh.has(sessionId)) {
                 if (!channel || channel.size === 0) {
                     player.vx = 0;
@@ -179,28 +174,12 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
                 this.inputLockedUntilFresh.delete(sessionId);
             }
 
-            if (channel) {
-                for (const input of channel) {
-                    player.vx = input.moveX * MOVE_SPEED;
-
-                    if (input.jump && canJump) {
-                        player.vy = -JUMP_SPEED;
-                        body.timeSinceGrounded += COYOTE_TIME + 1;
-                    }
-
-                    // Cut off a jump early when jump is released.
-                    const jumping = player.vy < 0 && body.timeSinceGrounded > COYOTE_TIME;
-                    if (jumping && !input.jump) player.vy = 0;
-                    if (player.vy >= MAX_FALL_SPEED) player.vy = MAX_FALL_SPEED;
-                }
-            }
-
-            const conveyor = this.currentLevel.conveyor;
+            const input = channel?.next() ?? NO_INPUT;
+            applyPlayerInput(body, input);
             if (conveyor && this.isStandingOn(body, conveyor.surface)) {
-                player.vx += conveyor.pushSpeed;
+                body.velocity = { x: body.velocity.x + conveyor.pushSpeed, y: body.velocity.y };
             }
-
-            body.velocity = { x: player.vx, y: player.vy };
+            player.vx = body.velocity.x;
         }
 
         const button = this.currentLevel.button;
@@ -238,6 +217,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             player.y = body.rect.y;
             player.vx = body.velocity.x;
             player.vy = body.velocity.y;
+            player.timeSinceGrounded = body.timeSinceGrounded;
             player.grounded = body.timeSinceGrounded === 0;
         }
 
@@ -303,6 +283,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             player.vx = 0;
             player.vy = 0;
             player.grounded = false;
+            player.timeSinceGrounded = 0;
         }
 
         this.lockAllInputsUntilFresh();
@@ -327,7 +308,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         }
     }
 
-    /** Rebuild only level geometry; session and player bodies remain owned by this room. */
+    /** Rebuild only level geometry; session and player bodies remain room-owned. */
     private rebuildWorld() {
         const level = this.currentLevel;
         this.world = new PhysicsWorld({ x: 0, y: GRAVITY });
@@ -403,7 +384,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         this.crateBody.timeSinceGrounded = 0;
     }
 
-    /** Keep the server collision surface on the same frame as the rendered cap. */
+    /** Keep the server collider on the same animation frame as the rendered cap. */
     private advanceButtonPress() {
         const button = this.currentLevel.button;
         if (!button || !this.buttonBody || !this.state.buttonPressed) return;

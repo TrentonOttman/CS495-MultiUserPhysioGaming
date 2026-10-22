@@ -22,8 +22,13 @@ export const Player = schema({
     y: t.number(),
     vx: t.number(),
     vy: t.number(),
-    /** True when standing on something; only grounded players can jump. */
+    /** True when standing on something. */
     grounded: t.boolean(),
+    /**
+     * Ticks since the player last stood on something (0 = grounded). Drives
+     * coyote time, and is synced so client-side prediction can restore it.
+     */
+    timeSinceGrounded: t.number(),
     /** Index into the client's color list, assigned on join. */
     color: t.uint8(),
     /** False while the player's connection has dropped and their seat is held. */

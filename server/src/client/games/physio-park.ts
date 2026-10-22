@@ -7,6 +7,7 @@ import { RESOLUTION_X, RESOLUTION_Y, TICK_RATE } from "../../shared/physioPark/p
 import { LEVEL_WIDTH, SOLIDS, LAVA, GOAL } from "../../shared/physioPark/physioParkLevel.js";
 import { setupRoom } from "./roomSetup.ts";
 import { getData } from "../../sensor/sensorData.js";
+import { getData } from "../../sensor/sensorData.js";
 
 export interface PhysioParkElements {
     game: HTMLElement;
@@ -28,6 +29,8 @@ const PLAYER_COLORS = [0x7ec97e, 0x7eb6e0, 0xe09ad8, 0xf2c14e, 0xe0705a, 0x9b7ee
  * smooth between them.
  */
 const SMOOTHING_MS = 40;
+
+const JumpSensorThreshold = 0.00001; //Threshold for sensor value to cause a jump
 
 /** Milliseconds per simulation tick. The client sends exactly one input per tick. */
 const STEP_MS = 1000 / TICK_RATE;
@@ -115,7 +118,7 @@ class PhysioParkScene extends Phaser.Scene {
     update(_time: number, delta: number) {
         const held = (keys: Phaser.Input.Keyboard.Key[]) => keys.some((k) => k.isDown);
         const moveX = (held(this.keys.right) ? 1 : 0) - (held(this.keys.left) ? 1 : 0);
-        const jump = held(this.keys.jump) || (getData() > JumpSensorThreshold);
+        const jump = held(this.keys.jump) || (getData() > JumpSensorThreshold) || (getData() > JumpSensorThreshold);
 
         // One input per simulation tick, independent of the monitor's frame rate,
         // so the server steps exactly once per input (what prediction relies on).

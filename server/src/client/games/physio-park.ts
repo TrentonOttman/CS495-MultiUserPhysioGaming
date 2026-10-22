@@ -6,6 +6,7 @@ import type { MoveInput, Player } from "../../rooms/schema/PhysioParkState.js";
 import { RESOLUTION_X, RESOLUTION_Y } from "../../shared/physioPark/physioParkConstants.js";
 import { LEVEL_WIDTH, SOLIDS, LAVA, GOAL } from "../../shared/physioPark/physioParkLevel.js";
 import { setupRoom } from "./roomSetup.ts";
+import { getData } from "../../sensor/sensorData.js";
 
 export interface PhysioParkElements {
     game: HTMLElement;
@@ -27,6 +28,8 @@ const PLAYER_COLORS = [0x7ec97e, 0x7eb6e0, 0xe09ad8, 0xf2c14e, 0xe0705a, 0x9b7ee
  * smooth between them.
  */
 const SMOOTHING_MS = 40;
+
+const JumpSensorThreshold = 0.7; //Threshold for sensor value to cause a jump
 
 /**
  * Draws the game. It does not simulate anything: the server runs the shared
@@ -101,7 +104,7 @@ class PhysioParkScene extends Phaser.Scene {
     update(_time: number, delta: number) {
         const held = (keys: Phaser.Input.Keyboard.Key[]) => keys.some((k) => k.isDown);
         const moveX = (held(this.keys.right) ? 1 : 0) - (held(this.keys.left) ? 1 : 0);
-        const jump = held(this.keys.jump);
+        const jump = held(this.keys.jump) || (getData() > JumpSensorThreshold);
 
         if (moveX !== this.lastSent.moveX || jump !== this.lastSent.jump) {
             this.sendInput(moveX, jump);

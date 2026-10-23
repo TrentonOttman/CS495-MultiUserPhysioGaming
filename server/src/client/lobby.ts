@@ -273,6 +273,8 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
             option.textContent = String(count);
             maxPlayersSelect.appendChild(option);
         }
+
+        maxPlayersSelect.value = String(game.maxPlayers);
     }
 
     gameSelect.addEventListener("change", updatePlayerOptions);

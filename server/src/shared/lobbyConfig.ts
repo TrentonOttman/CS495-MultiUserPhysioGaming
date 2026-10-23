@@ -29,7 +29,7 @@ export type LobbyConfigResult =
  */
 export const DEFAULT_LOBBY_CONFIG: LobbyConfig = {
     name: "",
-    maxPlayers: MIN_PLAYERS,
+    maxPlayers: GAME_REGISTRY[DEFAULT_GAME_ID].maxPlayers,
     isPrivate: false,
     gameId: DEFAULT_GAME_ID,
 };

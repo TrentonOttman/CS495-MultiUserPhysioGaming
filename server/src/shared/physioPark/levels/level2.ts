@@ -5,7 +5,7 @@ import { GROUND_TOP, LEVEL_HEIGHT, LEVEL_WIDTH, allPlayersInsideGoalArea } from 
 // Lower than before while still beyond a solo jump from the floor.
 const goalPlatform = { x: 290, y: 116, width: 54, height: 6 } as const;
 // The zone sits over the right half of the platform and ends at its top edge.
-const goalArea = { x: 290, y: 52, width: 32, height: 64 } as const;
+const goalArea = { x: 290, y: 52, width: 54, height: 64 } as const;
 const levelWidth = LEVEL_WIDTH + 64;
 // Three short belts leave 28 px, 28 px, and 32 px lava gaps.
 const conveyorSurfaces = [

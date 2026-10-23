@@ -33,7 +33,7 @@ export interface PhysioParkElements {
 }
 
 const RENDER_SCALE = 4;
-const FOLLOW_CAMERA_ZOOM = 1.25;
+const FOLLOW_CAMERA_ZOOM = 1.0;
 const UI_RESOLUTION_X = RESOLUTION_X * RENDER_SCALE;
 const UI_RESOLUTION_Y = RESOLUTION_Y * RENDER_SCALE;
 const PLAYER_COLORS = [
@@ -105,9 +105,6 @@ class PhysioParkScene extends Phaser.Scene {
     create() {
         this.createAnimations();
 
-        // Keep the 4x pixel-art render scale, then zoom 1.25x into the world.
-        // Using 1.25 alone made the camera's world view larger than the level bounds,
-        // which prevented it from following the player correctly.
         this.worldCamera = this.cameras.main
             .setZoom(RENDER_SCALE * FOLLOW_CAMERA_ZOOM)
             .setRoundPixels(true);

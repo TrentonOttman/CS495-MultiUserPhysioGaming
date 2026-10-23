@@ -33,6 +33,7 @@ export const LEVEL_1: ResolvedPhysioParkLevel = {
     ...LEVEL_1_COLLISION,
     id: "level1",
     name: "Level 1",
+    goalFlagOffset: { x: 8, y: 0 },
     spawnPoint(index) {
         return { x: 16 + (index % 6) * 14.4, y: GROUND_TOP - PLAYER_HEIGHT_HALF };
     },

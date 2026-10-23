@@ -1,4 +1,4 @@
-import { isGameId, GAME_REGISTRY, type GameId } from "./games.js";
+import { DEFAULT_GAME_ID, isGameId, GAME_REGISTRY, type GameId } from "./games.js";
 
 /**
  * The physiological-input games target 2–12 simultaneous players, which is what
@@ -31,7 +31,7 @@ export const DEFAULT_LOBBY_CONFIG: LobbyConfig = {
     name: "",
     maxPlayers: MIN_PLAYERS,
     isPrivate: false,
-    gameId: "pong",
+    gameId: DEFAULT_GAME_ID,
 };
 
 /**

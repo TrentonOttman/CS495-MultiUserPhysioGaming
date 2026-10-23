@@ -27,7 +27,7 @@ export interface PhysioParkLevelCollision {
     lava: PhysioParkRect;
     goalPlatform: Solid;
     goalArea: PhysioParkRect;
-    conveyor?: ConveyorCollision;
+    conveyors?: readonly ConveyorCollision[];
     button?: ButtonDefinition;
 }
 
@@ -37,10 +37,17 @@ export interface LevelObjectiveState {
     buttonPressed: boolean;
 }
 
+/** Flag-pole position relative to the goal platform's top-left corner. */
+export interface GoalFlagOffset {
+    x: number;
+    y: number;
+}
+
 /** Data and behavior consumed by the server and client at runtime. */
 export interface ResolvedPhysioParkLevel extends PhysioParkLevelCollision {
     id: string;
     name: string;
+    goalFlagOffset: GoalFlagOffset;
     spawnPoint(index: number): { x: number; y: number };
     isComplete(players: readonly PlayerPoint[], objectives: LevelObjectiveState): boolean;
 }

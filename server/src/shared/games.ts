@@ -13,6 +13,8 @@ export const GAME_REGISTRY = {
 
 export type GameId = keyof typeof GAME_REGISTRY;
 
+export const DEFAULT_GAME_ID: GameId = "physio_park";
+
 export const GAME_IDS = Object.keys(GAME_REGISTRY) as GameId[];
 
 export function isGameId(value: unknown): value is GameId {

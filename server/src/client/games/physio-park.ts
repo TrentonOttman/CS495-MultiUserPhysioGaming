@@ -10,6 +10,7 @@ import {
 import { RESOLUTION_X, RESOLUTION_Y, TICK_RATE } from "../../shared/physioPark/physioParkConstants.js";
 import { PHYSIO_PARK_LEVELS } from "../../shared/physioPark/physioParkLevel.js";
 import type { Solid } from "../../shared/physioPark/physioParkMovement.js";
+import type { GoalFlagOffset } from "../../shared/physioPark/levels/types.js";
 import { getPeak } from "../../sensor/sensorData.js";
 import { setupRoom } from "./roomSetup.ts";
 
@@ -32,6 +33,7 @@ export interface PhysioParkElements {
 }
 
 const RENDER_SCALE = 4;
+const FOLLOW_CAMERA_ZOOM = 1.25;
 const UI_RESOLUTION_X = RESOLUTION_X * RENDER_SCALE;
 const UI_RESOLUTION_Y = RESOLUTION_Y * RENDER_SCALE;
 const PLAYER_COLORS = [
@@ -61,20 +63,26 @@ class PhysioParkScene extends Phaser.Scene {
     private buttonAnimation?: SpriteSheetAnimationDefinition;
     private renderedButtonFrame = 0;
     private renderedLevelNumber = 0;
+    private renderedHudLevelNumber = -1;
+    private renderedHudPhase?: string;
 
     private worldCamera!: Phaser.Cameras.Scene2D.Camera;
     private uiCamera!: Phaser.Cameras.Scene2D.Camera;
     private ui!: Phaser.GameObjects.Container;
+    private levelBadge: Phaser.GameObjects.Graphics;
     private levelText: Phaser.GameObjects.Text;
+    private completionGroup: Phaser.GameObjects.Container;
+    private completionPanel: Phaser.GameObjects.Graphics;
     private completionText: Phaser.GameObjects.Text;
+    private completionTween?: Phaser.Tweens.TweenChain;
+    private completionPanelWidth = 0;
+    private completionPanelHeight = 0;
 
     private input_: InputHandle<MoveInput>;
     private keys: PlayerKeys;
     private inputAccumulator = 0;
 
-    constructor(
-        private readonly room: Room<PhysioParkRoom["state"]>,
-    ) {
+    constructor(private readonly room: Room<PhysioParkRoom["state"]>) {
         super("physio-park");
     }
 
@@ -97,7 +105,12 @@ class PhysioParkScene extends Phaser.Scene {
     create() {
         this.createAnimations();
 
-        this.worldCamera = this.cameras.main.setZoom(RENDER_SCALE).setRoundPixels(true);
+        // Keep the 4x pixel-art render scale, then zoom 1.25x into the world.
+        // Using 1.25 alone made the camera's world view larger than the level bounds,
+        // which prevented it from following the player correctly.
+        this.worldCamera = this.cameras.main
+            .setZoom(RENDER_SCALE * FOLLOW_CAMERA_ZOOM)
+            .setRoundPixels(true);
         this.worldCamera.centerOn(RESOLUTION_X / 2, RESOLUTION_Y / 2);
         this.uiCamera = this.cameras.add(0, 0, UI_RESOLUTION_X, UI_RESOLUTION_Y);
         this.ui = this.add.container(0, 0);
@@ -162,22 +175,29 @@ class PhysioParkScene extends Phaser.Scene {
     }
 
     private createHud() {
-        this.levelText = this.add.text(24, 18, "", {
-            fontFamily: "sans-serif",
-            fontSize: "28px",
-            color: "#222222",
-            backgroundColor: "#f4f1eacc",
-            padding: { x: 10, y: 6 },
-        });
-        this.completionText = this.add.text(UI_RESOLUTION_X / 2, UI_RESOLUTION_Y / 2, "", {
-            fontFamily: "sans-serif",
-            fontSize: "64px",
+        this.levelBadge = this.add.graphics();
+        this.levelText = this.add.text(0, 0, "", {
+            fontFamily: "system-ui, sans-serif",
+            fontSize: "16px",
             fontStyle: "bold",
-            color: "#2e7d32",
-            backgroundColor: "#f4f1eacc",
-            padding: { x: 18, y: 12 },
-        }).setOrigin(0.5).setVisible(false);
-        this.ui.add([this.levelText, this.completionText]);
+            color: "#1f2937",
+        }).setOrigin(0);
+
+        this.completionPanel = this.add.graphics();
+        this.completionText = this.add.text(0, 0, "", {
+            fontFamily: "system-ui, sans-serif",
+            fontSize: "28px",
+            fontStyle: "bold",
+            color: "#1b5e20",
+            align: "center",
+        }).setOrigin(0);
+        this.completionGroup = this.add.container(0, 0, [this.completionPanel, this.completionText]);
+        this.completionGroup.setVisible(false);
+        this.ui.add([this.levelBadge, this.levelText, this.completionGroup]);
+
+        this.renderHudLevel(this.room.state.levelNumber);
+        this.renderedHudLevelNumber = this.room.state.levelNumber;
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.completionTween?.stop());
     }
 
     private createControls() {
@@ -258,11 +278,108 @@ class PhysioParkScene extends Phaser.Scene {
     }
 
     private updateHud() {
-        this.levelText.setText(`Level ${this.room.state.levelNumber}`);
+        if (this.renderedHudLevelNumber !== this.room.state.levelNumber) {
+            this.renderedHudLevelNumber = this.room.state.levelNumber;
+            this.renderHudLevel(this.renderedHudLevelNumber);
+        }
         const phase = this.room.state.levelPhase;
-        this.completionText
-            .setText(phase === "transitioning" ? "Level Complete!" : phase === "completed" ? "Game Complete!" : "")
-            .setVisible(phase !== "playing");
+        if (this.renderedHudPhase === phase) return;
+        this.renderedHudPhase = phase;
+
+        const message = phase === "transitioning"
+            ? "Level Complete!"
+            : phase === "completed"
+                ? "Game Complete!"
+                : "";
+        this.showCompletionMessage(message, phase === "transitioning");
+    }
+
+    private renderHudLevel(levelNumber: number) {
+        const scale = this.getUiScale();
+        const border = scale;
+        const paddingX = 8.8 * scale;
+        const paddingY = 4.8 * scale;
+        const x = 10 * scale;
+        const y = 10 * scale;
+        const radius = 7.2 * scale;
+
+        this.levelText.setFontSize(16 * scale);
+        this.levelText.setText(`Level ${levelNumber}`);
+        this.levelText.setPosition(x + border + paddingX, y + border + paddingY);
+
+        const width = this.levelText.width + 2 * (border + paddingX);
+        const height = this.levelText.height + 2 * (border + paddingY);
+        this.levelBadge.clear();
+        this.levelBadge.fillStyle(0xf4f1ea, 0.95).fillRoundedRect(x, y, width, height, radius);
+        this.levelBadge.lineStyle(border, 0x1f2937, 0.2).strokeRoundedRect(x, y, width, height, radius);
+    }
+
+    private showCompletionMessage(message: string, animate: boolean) {
+        this.completionTween?.stop();
+        this.completionTween = undefined;
+
+        if (!message) {
+            this.completionGroup.setVisible(false);
+            return;
+        }
+
+        const scale = this.getUiScale();
+        const fontSizeCss = Math.min(32, Math.max(19.2, window.innerWidth * 0.04));
+        const border = 2 * scale;
+        const paddingX = 18.4 * scale;
+        const paddingY = 10.4 * scale;
+        const radius = 12 * scale;
+        const maxTextWidth = UI_RESOLUTION_X - 32 * scale - 2 * (border + paddingX);
+
+        this.completionText.setFontSize(fontSizeCss * scale);
+        this.completionText.setText(message);
+        if (this.completionText.width > maxTextWidth) {
+            const fittedFontSize = fontSizeCss * scale * maxTextWidth / this.completionText.width;
+            this.completionText.setFontSize(fittedFontSize);
+        }
+
+        this.completionPanelWidth = this.completionText.width + 2 * (border + paddingX);
+        this.completionPanelHeight = this.completionText.height + 2 * (border + paddingY);
+        this.completionText.setPosition(border + paddingX, border + paddingY);
+        this.completionPanel.clear();
+        this.completionPanel.fillStyle(0xf4f1ea, 0.96)
+            .fillRoundedRect(0, 0, this.completionPanelWidth, this.completionPanelHeight, radius);
+        this.completionPanel.lineStyle(border, 0x33aa33, 1)
+            .strokeRoundedRect(0, 0, this.completionPanelWidth, this.completionPanelHeight, radius);
+
+        const centerX = (UI_RESOLUTION_X - this.completionPanelWidth) / 2;
+        const centerY = (UI_RESOLUTION_Y - this.completionPanelHeight) / 2;
+        this.completionGroup.setVisible(true);
+        if (!animate || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            this.completionGroup.setPosition(centerX, centerY).setAlpha(1).setScale(1);
+            return;
+        }
+
+        this.completionGroup.setPosition(-UI_RESOLUTION_X, centerY).setAlpha(0).setScale(0.92);
+        this.completionTween = this.tweens.chain({
+            targets: this.completionGroup,
+            tweens: [
+                { x: centerX, alpha: 1, scaleX: 1.06, scaleY: 1.06, duration: 300, ease: "Sine.easeInOut" },
+                { scaleX: 1, scaleY: 1, duration: 120, ease: "Sine.easeInOut" },
+                { x: centerX, duration: 1_060 },
+                {
+                    x: UI_RESOLUTION_X * 1.1,
+                    alpha: 0,
+                    scaleX: 0.96,
+                    scaleY: 0.96,
+                    duration: 520,
+                    ease: "Sine.easeInOut",
+                },
+            ],
+            onComplete: () => {
+                this.completionGroup.setVisible(false);
+                this.completionTween = undefined;
+            },
+        });
+    }
+
+    private getUiScale() {
+        return UI_RESOLUTION_X / Math.max(1, this.scale.displaySize.width);
     }
 
     private updatePlayerSprites(delta: number) {
@@ -298,10 +415,12 @@ class PhysioParkScene extends Phaser.Scene {
 
         const level = PHYSIO_PARK_LEVELS[levelNumber - 1] ?? PHYSIO_PARK_LEVELS[0];
         this.worldCamera.setBounds(0, 0, level.width, level.height);
+        const conveyors = level.conveyors ?? [];
+        const conveyorSurfaces = conveyors.map((conveyor) => conveyor.surface);
         this.drawHazardsAndGoalArea(level);
-        this.drawSolids(level.solids, level.conveyor?.surface);
-        this.drawConveyor(level.conveyor?.surface);
-        this.drawGoalFlag(level.goalPlatform, Boolean(level.button));
+        this.drawSolids(level.solids, conveyorSurfaces);
+        for (const conveyor of conveyors) this.drawConveyor(conveyor.surface);
+        this.drawGoalFlag(level.goalPlatform, level.goalFlagOffset);
         this.drawButtonAndCrate(level);
         this.renderedLevelNumber = levelNumber;
     }
@@ -323,9 +442,9 @@ class PhysioParkScene extends Phaser.Scene {
         ).setOrigin(0).setAlpha(0.16));
     }
 
-    private drawSolids(solids: readonly Solid[], conveyorSurface?: Solid) {
+    private drawSolids(solids: readonly Solid[], conveyorSurfaces: readonly Solid[] = []) {
         for (const solid of solids) {
-            if (conveyorSurface && sameBounds(solid, conveyorSurface)) continue;
+            if (conveyorSurfaces.some((surface) => sameBounds(solid, surface))) continue;
             this.addToLevel(this.add.rectangle(
                 solid.x,
                 solid.y,
@@ -357,10 +476,11 @@ class PhysioParkScene extends Phaser.Scene {
         return PHYSIO_PARK_ANIMATIONS.conveyorMiddle;
     }
 
-    private drawGoalFlag(goalPlatform: Solid, hasButton: boolean) {
-        const poleX = hasButton ? goalPlatform.x + 8 : goalPlatform.x + goalPlatform.width - 8;
-        this.addToLevel(this.add.image(poleX, goalPlatform.y, "flagPole").setOrigin(0.5, 1));
-        this.addToLevel(this.add.sprite(poleX, goalPlatform.y - 16, "flagSheet")
+    private drawGoalFlag(goalPlatform: Solid, offset: GoalFlagOffset) {
+        const poleX = goalPlatform.x + offset.x;
+        const poleY = goalPlatform.y + offset.y;
+        this.addToLevel(this.add.image(poleX, poleY, "flagPole").setOrigin(0.5, 1));
+        this.addToLevel(this.add.sprite(poleX, poleY - 16, "flagSheet")
             .setOrigin(0.5, 1)
             .play("flag"));
     }

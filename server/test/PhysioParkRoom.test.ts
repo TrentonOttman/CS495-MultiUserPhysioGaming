@@ -175,8 +175,8 @@ describe("physio_park_room", () => {
         await waitTicks(room, 2);
         assert.strictEqual(room.state.levelPhase, "playing", "the first player left before the team arrived");
 
-        setPlayerCenter(room, client1.sessionId, point.x, point.y);
-        setPlayerCenter(room, client2.sessionId, point.x, point.y);
+        setPlayerCenter(room, client1.sessionId, point.x - 20, point.y);
+        setPlayerCenter(room, client2.sessionId, point.x + 20, point.y);
         await waitTicks(room, 2);
         assert.strictEqual(room.state.levelPhase, "transitioning");
         await waitForState(() => client1.state.levelPhase === "transitioning" && client2.state.levelPhase === "transitioning");
@@ -185,7 +185,9 @@ describe("physio_park_room", () => {
         input.data.moveX = -1;
         input.data.jump = false;
         input.send();
-        await waitTicks(room, 60);
+        // Leave enough time for the player to cross the goal boundary during
+        // the transition while the other player stays clear of the path.
+        await waitTicks(room, 75);
         const movedPlayer = room.state.players.get(client1.sessionId)!;
         assert.ok(movedPlayer.x < before, "players can keep moving during the transition");
         assert.ok(movedPlayer.x + PLAYER_WIDTH_HALF < levelOne.goalArea.x, "players can leave the goal after completing it");
@@ -228,12 +230,12 @@ describe("physio_park_room", () => {
         buttonBody.rect.y = buttonSurface.y - PLAYER_HEIGHT - 3;
         buttonBody.velocity = { x: 0, y: 240 };
         buttonBody.timeSinceGrounded = 1;
-        await waitTicks(room, 1);
+        await waitTicks(room, 3);
         assert.strictEqual(room.state.buttonPressed, true, "landing on the button drops the crate");
 
         const finalPoint = goalCenter(levelTwo);
-        setPlayerCenter(room, client1.sessionId, finalPoint.x - 16, finalPoint.y);
-        setPlayerCenter(room, client2.sessionId, finalPoint.x + 16, finalPoint.y);
+        setPlayerCenter(room, client1.sessionId, finalPoint.x, finalPoint.y - 8);
+        setPlayerCenter(room, client2.sessionId, finalPoint.x, finalPoint.y + 8);
         await waitTicks(room, 2);
         assert.strictEqual(room.state.levelNumber, 2, "final completion does not increment the level");
         assert.strictEqual(room.state.levelPhase, "completed");

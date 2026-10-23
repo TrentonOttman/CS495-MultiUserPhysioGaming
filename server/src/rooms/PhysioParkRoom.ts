@@ -150,7 +150,6 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
      * the completion message is visible.
      */
     private step(_ctx: StepContext) {
-        const conveyor = this.currentLevel.conveyor;
         for (const [sessionId, player] of this.state.players) {
             const body = this.playerMap.get(sessionId);
             if (!body) continue;
@@ -176,10 +175,23 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
 
             const input = channel?.next() ?? NO_INPUT;
             applyPlayerInput(body, input);
-            if (conveyor && this.isStandingOn(body, conveyor.surface)) {
+            for (const conveyor of this.currentLevel.conveyors ?? []) {
+                if (!this.isStandingOn(body, conveyor.surface)) continue;
                 body.velocity = { x: body.velocity.x + conveyor.pushSpeed, y: body.velocity.y };
+                break;
             }
             player.vx = body.velocity.x;
+        }
+
+        if (this.crateBody && !this.crateBody.isStatic) {
+            for (const conveyor of this.currentLevel.conveyors ?? []) {
+                if (!this.isStandingOn(this.crateBody, conveyor.surface)) continue;
+                this.crateBody.velocity = {
+                    x: conveyor.pushSpeed,
+                    y: this.crateBody.velocity.y,
+                };
+                break;
+            }
         }
 
         const button = this.currentLevel.button;

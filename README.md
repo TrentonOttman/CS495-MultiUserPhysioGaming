@@ -180,22 +180,24 @@ Once the game is built and running, the sensor can be connected. This process is
 
 ## Project Goal
 
-The goal of this project is to develop a web-based, real-time multiplayer game controlled by physiological input devices. The game is designed to provide an engaging and accessible experience that allows K-12 students to participate with minimal technical or gameplay experience.
+The goal of this project is to develop a web-based, real-time multiplayer game controlled by physiological input devices. The game takes heavy inspiration from the existing Pico Park, and our version is called PhysioPark. The game is designed to provide an engaging and accessible experience that allows K-12 students to participate with minimal technical or gameplay experience.
 
 ## Project Status
 
 Previous work has established a single-player experience using a physiological input device. This project extends that work by developing a real-time multiplayer experience capable of supporting multiple physiological input devices simultaneously.
 
-The project is currently in the planning and research phase, with ongoing investigation into the game design, technical architecture, and technologies required to support the multiplayer experience.
+The project is currently in the fine-tuning phase after the creation of two levels utilizing the Phaser Typescript framework. Documentation has been completed regarding the game design, technical architecture, and technologies required to support the multiplayer experience. It is possible to create both public and private lobbies with a controlled maximum player amount. Local testing can be done using localhost:5173, but this project is also deployed on Google Cloud.
 
 ## Major Features
 
-Known major features of the finished project will include:
+Known major features of the finished project currently include:
 - **Browser-based:** The game can be played directly in a web browser.
 - **Multiplayer:** Supports 2–12 players using physiological input devices simultaneously.
 - **Physiological input:** Uses forearm muscle activity as the primary gameplay input.
 - **Real-time interaction:** Supports real-time communication and interaction between players.
 - **Classroom accessibility:** Designed to be approachable and engaging for K-12 students in a classroom environment.
+- **Two levels:** Utilizes simple platforming and cooperative puzzle-solving for a minimum of two players.
+- **Lobby Creation:** Supports public and private lobbies with default & user-entered display names.
 
 ## Project Management
 
@@ -204,6 +206,8 @@ The project is managed through [this repository](https://github.com/TrentonOttma
 Group communication is done by text message, Teams, Discord, and in-person.
 
 ## Documentation — Handoff
+
+**Recipient:** Dr. Crawford has informed us our hand-off will be directed to Simeon Herrod & Daniel Zheng following the conclusion of this semester. Our team has met with these two students and informed them of current progress and future plans. They have been added to this repository.
 
 Durable documentation intended for users, sponsors, future developers, deployers, and maintainers lives under [`docs/`](docs/):
 - [Development Guide](docs/development-guide/)
@@ -225,7 +229,7 @@ These records remain in version control for grading/history but are separate fro
 
 ## Testing
 
-Currently, no testing procedure has been set up.
+Currently, no testing procedure has been set up beyond running _npm test_ and manual gameplay testing.
 
 ## Iteration Submission Tags
 

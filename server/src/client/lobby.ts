@@ -1,4 +1,4 @@
-import { GAME_IDS, GAME_REGISTRY, type GameId } from "../shared/games.js";
+import { DEFAULT_GAME_ID, GAME_IDS, GAME_REGISTRY, type GameId } from "../shared/games.js";
 import { normalizeJoinCode } from "../shared/joinCode.js";
 import {validateLobbyConfig, type LobbyConfig } from "../shared/lobbyConfig.js";
 import { createLobbyBrowser } from "./lobbyBrowser.js";
@@ -83,7 +83,9 @@ export interface LobbyView {
     status: string;
 }
 
-const options = GAME_IDS.map((id) => `<option value="${id}">${GAME_REGISTRY[id].label}</option>`).join("");
+const options = GAME_IDS.map((id) =>
+    `<option value="${id}"${id === DEFAULT_GAME_ID ? " selected" : ""}>${GAME_REGISTRY[id].label}</option>`
+).join("");
 
 export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen {
     const element = document.createElement("section");
@@ -271,6 +273,8 @@ export function createLobbyScreen(callbacks: LobbyScreenCallbacks): LobbyScreen 
             option.textContent = String(count);
             maxPlayersSelect.appendChild(option);
         }
+
+        maxPlayersSelect.value = String(game.maxPlayers);
     }
 
     gameSelect.addEventListener("change", updatePlayerOptions);

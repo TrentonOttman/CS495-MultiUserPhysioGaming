@@ -9,6 +9,7 @@ import { startPong } from "./games/pong.js";
 import { startPhysioPark } from "./games/physio-park.js";
 import { connectSensor, disconnectSensor, getSensorSamples, subscribeSensor } from "./sensorConnection.js";
 import Visualizer from "../sensor/visualizer.js";
+import { setSensitivity } from "../sensor/sensorData.js";
 
 const statusEl = document.getElementById("status")!;
 const arenaEl = document.getElementById("arena")!;
@@ -30,6 +31,13 @@ const sensorToggle = document.getElementById("sensor-toggle") as HTMLButtonEleme
 const sensorDetails = document.getElementById("sensor-details")!;
 sensorDetails.inert = true;
 const sensorVisualizer = new Visualizer("sensor-graph", 1);
+const sensorSensitivity = document.getElementById("sensor-sensitivity") as HTMLInputElement;
+
+sensorSensitivity.addEventListener("input", function()
+{
+    setSensitivity(1 - Number(this.value));
+})
+setSensitivity(1 - Number(sensorSensitivity.value));
 
 sensorConnectButton.addEventListener("click", () => void connectSensor());
 sensorDisconnectButton.addEventListener("click", disconnectSensor);

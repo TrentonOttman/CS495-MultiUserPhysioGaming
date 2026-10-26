@@ -693,6 +693,10 @@
         </div>
         <div id="sensor-details" class="sensor-details" aria-hidden="true">
             <div class="sensor-details-inner">
+                <div class="slidecontainer" style = "width: 100%">
+                    <p>Sensor Sensitivity</p>
+                    <input type="range" min="0.9" max="1" value="0.99999999" step ="0.00000001" class="slider" id="sensor-sensitivity" style = "width: 90%">
+                </div>
                 <p id="sensor-error" hidden></p>
                 <canvas id="sensor-graph" aria-label="Live sensor signal graph"></canvas>
                 <p id="sensor-current-value">Current value: <span id="sensor-current-sample">0</span></p>

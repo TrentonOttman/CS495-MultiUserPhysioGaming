@@ -180,7 +180,7 @@ Once the game is built and running, the sensor can be connected. This process is
 
 ## Project Goal
 
-The goal of this project is to develop a web-based, real-time multiplayer game controlled by physiological input devices. The game takes heavy inspiration from the existing Pico Park, and our version is called PhysioPark. The game is designed to provide an engaging and accessible experience that allows K-12 students to participate with minimal technical or gameplay experience.
+The goal of this project is to develop a web-based, real-time multiplayer game controlled by physiological input devices. The game takes heavy inspiration from the existing Pico Park, and our version is called PhysioPark. We aim to have a full set of levels at the end of the semester. The game is designed to provide an engaging and accessible experience that allows K-12 students to participate with minimal technical or gameplay experience.
 
 ## Project Status
 

@@ -4,6 +4,7 @@
 - Create 1-2 levels inspired by a preexisting game
   - Settled on PicoPark clone (Physio Park)
 - Have sensor functionality for jump input
+-  Lobby room viewer/manager
 
 ## Sponsor Planning Notes
 - Get minimum of 8 players working

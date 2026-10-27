@@ -11,16 +11,8 @@ import { RESOLUTION_X, RESOLUTION_Y, TICK_RATE } from "../../shared/physioPark/p
 import { PHYSIO_PARK_LEVELS } from "../../shared/physioPark/physioParkLevel.js";
 import type { Solid } from "../../shared/physioPark/physioParkMovement.js";
 import type { GoalFlagOffset } from "../../shared/physioPark/levels/types.js";
-import { getPeak } from "../../sensor/sensorData.js";
 import { setupRoom } from "./roomSetup.ts";
-
-type HorizontalMove = -1 | 0 | 1;
-
-interface PlayerKeys {
-    left: Phaser.Input.Keyboard.Key[];
-    right: Phaser.Input.Keyboard.Key[];
-    jump: Phaser.Input.Keyboard.Key[];
-}
+import { getSensitivity, getPeak } from "../../sensor/sensorData.js";
 
 export interface PhysioParkElements {
     game: HTMLElement;
@@ -48,8 +40,10 @@ const PLAYER_COLORS = [
 ];
 const PLAYER_SNAP_DISTANCE = 16;
 const SMOOTHING_MS = 40;
-const TILE_SIZE = 16;
-const JUMP_SENSOR_THRESHOLD = 0.00001;
+
+var JumpSensorThreshold; //Threshold for sensor value to cause a jump
+
+/** Milliseconds per simulation tick. The client sends exactly one input per tick. */
 const STEP_MS = 1000 / TICK_RATE;
 const MAX_STEPS_PER_FRAME = 5;
 const GAME_BACKGROUND = "#f4f1ea";
@@ -232,7 +226,8 @@ class PhysioParkScene extends Phaser.Scene {
 
     private updateInput(delta: number) {
         const moveX = this.getHorizontalMove();
-        const jump = this.isAnyKeyDown(this.keys.jump) || getPeak() > JUMP_SENSOR_THRESHOLD;
+        JumpSensorThreshold = getSensitivity();
+        const jump = this.isAnyKeyDown(this.keys.jump) || getPeak() > JumpSensorThreshold;
 
         this.inputAccumulator = Math.min(
             this.inputAccumulator + delta,

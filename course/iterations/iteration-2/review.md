@@ -4,11 +4,14 @@
 - Create 1-2 levels inspired by a preexisting game
 - Have sensor functionality for jump input
 - Lobby room viewer/manager
+- Supporting 8-12 Players
 
 ## Plan vs. Actual
 - Got two levels of PhysioPark complete
 - Integrated sensor for both Pong and PhysioPark
 - More robust lobby configuration
+- Supports 8 players
+- Client-side prediction groundwork laid
 
 ### Completed
 - Colyseus Physio Park Levels 1-2 Up & Running

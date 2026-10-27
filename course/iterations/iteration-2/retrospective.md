@@ -21,6 +21,7 @@
 
 ## Follow-up from Previous Retrospective
 - Still need to change links to be accesible with password
-- Ripped out pong & transitioned focus to PhysioPark
+- Didn't rip out pong completely: It's still a viable game to play
+- Transitioned focus fully to PhysioPark
 - Added sensor input functionality
 - Much larger scope & room viewer/manager exists now

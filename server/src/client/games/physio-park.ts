@@ -24,6 +24,14 @@ export interface PhysioParkElements {
     displayName?: string;
 }
 
+type HorizontalMove = -1 | 0 | 1;
+
+interface PlayerKeys {
+    left: Phaser.Input.Keyboard.Key[];
+    right: Phaser.Input.Keyboard.Key[];
+    jump: Phaser.Input.Keyboard.Key[];
+}
+
 const RENDER_SCALE = 4;
 const FOLLOW_CAMERA_ZOOM = 1.0;
 const UI_RESOLUTION_X = RESOLUTION_X * RENDER_SCALE;
@@ -40,6 +48,7 @@ const PLAYER_COLORS = [
 ];
 const PLAYER_SNAP_DISTANCE = 16;
 const SMOOTHING_MS = 40;
+const TILE_SIZE = 16;
 
 var JumpSensorThreshold; //Threshold for sensor value to cause a jump
 

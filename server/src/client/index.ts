@@ -100,7 +100,7 @@ function promptForDisplayName(): Promise<string> {
         modal.className = "modal-overlay";
         modal.style.cssText = "position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; z-index: 9999;";
         modal.innerHTML = `
-            <div class="lobby-card modal-card" style="width: 100%; max-width: 400px; padding: 24px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);">
+            <div class="lobby-card modal-card" style="width: 100%; max-width: 400px; padding: 24px; background: white; border-radius: 8px;">
                 <h3 style="margin-top: 0;">Enter Your Display Name</h3>
                 <p>Choose a name or leave blank for a default player number.</p>
                 <form id="name-form">

@@ -105,8 +105,11 @@ export class LobbyRoom extends Room<{
             throw new ServerError(ErrorCode.MATCHMAKE_UNHANDLED, `Unknown game "${String(gameId)}".`);
         }
 
-        this.config = { ...DEFAULT_LOBBY_CONFIG, gameId: gameId as LobbyConfig["gameId"] };
+        const defaultMaxPlayers = Math.min(DEFAULT_LOBBY_CONFIG.maxPlayers, GAME_REGISTRY[gameId as keyof typeof GAME_REGISTRY].maxPlayers);
+        this.config = {...DEFAULT_LOBBY_CONFIG, gameId: gameId as LobbyConfig["gameId"], maxPlayers: defaultMaxPlayers};
         this.state.gameId = gameId as string;
+        this.state.maxPlayers = defaultMaxPlayers;
+        this.maxClients = defaultMaxPlayers;
 
         // A host-created lobby arrives with its full configuration in the
         // matchmaking request. Validate it before Colyseus commits the room so

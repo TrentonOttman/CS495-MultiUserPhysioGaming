@@ -25,7 +25,8 @@ export interface PhysioParkLevelCollision {
     height: number;
     solids: readonly Solid[];
     lava: PhysioParkRect;
-    goalPlatform: Solid;
+    /** Optional visual flag anchor for hand-authored levels. */
+    goalPlatform?: Solid;
     goalArea: PhysioParkRect;
     conveyors?: readonly ConveyorCollision[];
     button?: ButtonDefinition;
@@ -47,7 +48,25 @@ export interface GoalFlagOffset {
 export interface ResolvedPhysioParkLevel extends PhysioParkLevelCollision {
     id: string;
     name: string;
-    goalFlagOffset: GoalFlagOffset;
+    goalFlagOffset?: GoalFlagOffset;
+    /** LDtk-authored tiles, in world pixels, rendered from the referenced atlas. */
+    tiles?: readonly LevelTile[];
+    tilesets?: Readonly<Record<string, string>>;
+    /** Optional full-level background image copied from the LDtk project. */
+    background?: string;
+    /** Bottom-center anchor for the level's animated goal flag. */
+    goalFlagPosition?: { x: number; y: number };
     spawnPoint(index: number): { x: number; y: number };
     isComplete(players: readonly PlayerPoint[], objectives: LevelObjectiveState): boolean;
+}
+
+export interface LevelTile {
+    x: number;
+    y: number;
+    sourceX: number;
+    sourceY: number;
+    size: number;
+    tileset: string;
+    flipX?: boolean;
+    flipY?: boolean;
 }

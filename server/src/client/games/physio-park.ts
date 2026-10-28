@@ -10,7 +10,7 @@ import {
 import { RESOLUTION_X, RESOLUTION_Y, TICK_RATE } from "../../shared/physioPark/physioParkConstants.js";
 import { PHYSIO_PARK_LEVELS } from "../../shared/physioPark/physioParkLevel.js";
 import type { Solid } from "../../shared/physioPark/physioParkMovement.js";
-import type { GoalFlagOffset } from "../../shared/physioPark/levels/types.js";
+import type { GoalFlagOffset, LevelTile } from "../../shared/physioPark/levels/types.js";
 import { setupRoom } from "./roomSetup.ts";
 import { getSensitivity, getPeak } from "../../sensor/sensorData.js";
 
@@ -96,6 +96,9 @@ class PhysioParkScene extends Phaser.Scene {
         this.load.spritesheet("flagSheet", "assets/FlagSheet.png", { frameWidth: 16, frameHeight: 16 });
         this.load.image("flagPole", "assets/FlagPole.png");
         this.load.image("crate16", "assets/Crate16x16.png");
+        for (const level of PHYSIO_PARK_LEVELS) {
+            if (level.background) this.load.image(`levelBackground-${level.id}`, level.background);
+        }
 
         for (const animation of Object.values(PHYSIO_PARK_ANIMATIONS)) {
             this.load.spritesheet(animation.textureKey, animation.assetPath, {
@@ -103,6 +106,11 @@ class PhysioParkScene extends Phaser.Scene {
                 frameHeight: animation.frameHeight,
             });
         }
+        const tilesets = new Map<string, string>();
+        for (const level of PHYSIO_PARK_LEVELS) {
+            for (const [key, url] of Object.entries(level.tilesets ?? {})) tilesets.set(key, url);
+        }
+        for (const [key, url] of tilesets) this.load.image(key, url);
     }
 
     create() {
@@ -418,22 +426,31 @@ class PhysioParkScene extends Phaser.Scene {
         this.worldCamera.setBounds(0, 0, level.width, level.height);
         const conveyors = level.conveyors ?? [];
         const conveyorSurfaces = conveyors.map((conveyor) => conveyor.surface);
+        if (level.background) {
+            this.addToLevel(this.add.image(0, 0, `levelBackground-${level.id}`)
+                .setOrigin(0)
+                .setDisplaySize(level.width, level.height));
+        }
         this.drawHazardsAndGoalArea(level);
-        this.drawSolids(level.solids, conveyorSurfaces);
+        if (level.tiles?.length) this.drawAuthoredTiles(level.tiles);
+        else this.drawSolids(level.solids, conveyorSurfaces);
         for (const conveyor of conveyors) this.drawConveyor(conveyor.surface);
-        this.drawGoalFlag(level.goalPlatform, level.goalFlagOffset);
+        if (level.goalFlagPosition) this.drawGoalFlagAt(level.goalFlagPosition);
+        else if (level.goalPlatform && level.goalFlagOffset) this.drawGoalFlag(level.goalPlatform, level.goalFlagOffset);
         this.drawButtonAndCrate(level);
         this.renderedLevelNumber = levelNumber;
     }
 
     private drawHazardsAndGoalArea(level: (typeof PHYSIO_PARK_LEVELS)[number]) {
-        this.addToLevel(this.add.rectangle(
-            level.lava.x,
-            level.lava.y,
-            level.lava.width,
-            level.lava.height,
-            0xe8743b,
-        ).setOrigin(0));
+        if (!level.tiles?.length) {
+            this.addToLevel(this.add.rectangle(
+                level.lava.x,
+                level.lava.y,
+                level.lava.width,
+                level.lava.height,
+                0xe8743b,
+            ).setOrigin(0));
+        }
         this.addToLevel(this.add.rectangle(
             level.goalArea.x,
             level.goalArea.y,
@@ -453,6 +470,18 @@ class PhysioParkScene extends Phaser.Scene {
                 solid.height,
                 0x555555,
             ).setOrigin(0));
+        }
+    }
+
+    private drawAuthoredTiles(tiles: readonly LevelTile[]) {
+        for (const tile of tiles) {
+            const frameName = `${tile.sourceX}_${tile.sourceY}_${tile.size}`;
+            const texture = this.textures.get(tile.tileset);
+            if (!texture.has(frameName)) {
+                texture.add(frameName, 0, tile.sourceX, tile.sourceY, tile.size, tile.size);
+            }
+            this.addToLevel(this.add.image(tile.x + tile.size / 2, tile.y + tile.size / 2, tile.tileset, frameName)
+                .setFlip(tile.flipX ?? false, tile.flipY ?? false));
         }
     }
 
@@ -478,8 +507,11 @@ class PhysioParkScene extends Phaser.Scene {
     }
 
     private drawGoalFlag(goalPlatform: Solid, offset: GoalFlagOffset) {
-        const poleX = goalPlatform.x + offset.x;
-        const poleY = goalPlatform.y + offset.y;
+        this.drawGoalFlagAt({ x: goalPlatform.x + offset.x, y: goalPlatform.y + offset.y });
+    }
+
+    private drawGoalFlagAt(position: { x: number; y: number }) {
+        const { x: poleX, y: poleY } = position;
         this.addToLevel(this.add.image(poleX, poleY, "flagPole").setOrigin(0.5, 1));
         this.addToLevel(this.add.sprite(poleX, poleY - 16, "flagSheet")
             .setOrigin(0.5, 1)

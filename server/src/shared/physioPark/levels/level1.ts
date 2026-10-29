@@ -1,19 +1,14 @@
 import { allPlayersInsideGoalArea } from "./shared.js";
 import { PLAYER_HEIGHT_HALF } from "../physioParkConstants.js";
-import type { PhysioParkLevelCollision, ResolvedPhysioParkLevel } from "./types.js";
+import type { ResolvedPhysioParkLevel } from "./types.js";
 import { LDtkLevel } from "./ldtkLevel1.js";
 
-/** Collision data generated from docs/planning/ldtkLevel1/Level1.ldtk. */
-export const LEVEL_1_COLLISION: PhysioParkLevelCollision = {
+export const LEVEL_1: ResolvedPhysioParkLevel = {
     width: LDtkLevel.width,
     height: LDtkLevel.height,
     solids: LDtkLevel.solids,
     lava: LDtkLevel.lava,
     goalArea: LDtkLevel.goalArea,
-};
-
-export const LEVEL_1: ResolvedPhysioParkLevel = {
-    ...LEVEL_1_COLLISION,
     id: LDtkLevel.id,
     name: LDtkLevel.name,
     tiles: LDtkLevel.tiles,

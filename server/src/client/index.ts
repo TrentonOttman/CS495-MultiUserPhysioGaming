@@ -6,7 +6,7 @@ import { createLobbyScreen } from "./lobby.js";
 import type { LobbyConfig } from "../shared/lobbyConfig.js";
 import type { GameId } from "../shared/games.js";
 import { startPong } from "./games/pong.js";
-import { startPhysioPark } from "./games/physio-park.js";
+import { startPhysioPark } from "./games/physio-park/physio-park.js";
 import { connectSensor, disconnectSensor, getSensorSamples, subscribeSensor } from "./sensorConnection.js";
 import Visualizer from "../sensor/visualizer.js";
 import { setSensitivity } from "../sensor/sensorData.js";

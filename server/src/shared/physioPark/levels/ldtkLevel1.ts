@@ -1,7 +1,7 @@
-// Generated from ../docs/planning/ldtkLevel1/Level1.ldtk by scripts/convert-ldtk.mjs. Do not edit.
+// Generated from ../docs/planning/ldtkLevel1/level1.ldtk by scripts/convert-ldtk.mjs. Do not edit.
 export const LDtkLevel = {
-    "id": "Level_0",
-    "name": "Level 0",
+    "id": "Level_1",
+    "name": "Level 1",
     "width": 320,
     "height": 180,
     "solids": [
@@ -2013,7 +2013,7 @@ export const LDtkLevel = {
         }
     ],
     "tilesets": {
-        "ldtkTileset6": "/assets/tilesets/6.png"
+        "ldtkTileset6": "/assets/tilesets/AllTiles.png"
     },
     "background": "/assets/backgrounds/SkyCreamVar.png"
 } as const;

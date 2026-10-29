@@ -7,13 +7,13 @@ const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const serverDir = path.resolve(scriptDir, "..");
 const inputPath = process.argv[2];
 if (!inputPath) {
-    console.error("Usage: npm run levels:convert -- <project.ldtk> [level identifier]");
+    console.error("Usage: npm run levels:convert -- <project.ldtk> [level identifier] [output name]");
     process.exit(2);
 }
 
 const sourcePath = path.resolve(process.cwd(), inputPath);
 const projectDirectory = path.dirname(sourcePath);
-const outputName = path.basename(projectDirectory).replace(/[^a-zA-Z0-9_-]/g, "") || "ldtkLevel";
+const outputName = (process.argv[4] ?? path.basename(projectDirectory)).replace(/[^a-zA-Z0-9_-]/g, "") || "ldtkLevel";
 const outputPath = path.resolve(serverDir, `src/shared/physioPark/levels/${outputName}.ts`);
 const project = JSON.parse(fs.readFileSync(sourcePath, "utf8"));
 const level = project.levels.find((candidate) => !process.argv[3] || candidate.identifier === process.argv[3]);
@@ -63,6 +63,14 @@ function resolveProjectAsset(reference, { matchStem = false } = {}) {
     const direct = path.resolve(projectDirectory, reference);
     if (fs.existsSync(direct)) return direct;
     const basename = path.basename(reference);
+    // Projects may refer to assets that have been consolidated into the game's
+    // public asset folders instead of keeping local copies beside the .ldtk.
+    for (const assetDirectory of ["backgrounds", "tilesets"]) {
+        const publicDirectory = path.resolve(serverDir, `public/assets/${assetDirectory}`);
+        if (!fs.existsSync(publicDirectory)) continue;
+        const match = fs.readdirSync(publicDirectory).find((name) => name.toLowerCase() === basename.toLowerCase());
+        if (match) return path.join(publicDirectory, match);
+    }
     if (matchStem) {
         const stem = path.parse(basename).name;
         const match = fs.readdirSync(projectDirectory)
@@ -84,8 +92,11 @@ const tiles = [];
 const tilesets = {};
 const copiedTilesets = new Set();
 const spawns = [];
+const movingPlatforms = [];
+const switches = [];
 let goalArea;
 let goalPostEntity;
+let goalFlagEntity;
 let goalFlagPosition;
 let buttonEntity;
 let boxEntity;
@@ -114,10 +125,39 @@ for (const layer of level.layerInstances ?? []) {
             goalArea = { x: entity.px[0], y: entity.px[1], width: entity.width, height: entity.height };
         } else if (identifier === "GoalPost") {
             goalPostEntity = entity;
+        } else if (identifier === "GoalFlag") {
+            goalFlagEntity = entity;
         } else if (identifier === "Button") {
             buttonEntity = entity;
         } else if (identifier === "Box") {
             boxEntity = entity;
+        } else if (identifier === "MovingPlatform") {
+            const field = (name) => entity.fieldInstances?.find((entry) => entry.__identifier === name)?.__value;
+            const endpoint = field("endPoint");
+            const gridSize = layer.__gridSize;
+            movingPlatforms.push({
+                id: entity.iid,
+                x: entity.px[0],
+                y: entity.px[1],
+                width: entity.width,
+                height: entity.height,
+                endX: endpoint ? endpoint.cx * gridSize : entity.px[0],
+                endY: endpoint ? endpoint.cy * gridSize : entity.px[1],
+                speed: Number(field("speed") ?? 20),
+                type: field("PlatformType") ?? "Stone",
+            });
+        } else if (identifier === "PlayerSwitch") {
+            const field = (name) => entity.fieldInstances?.find((entry) => entry.__identifier === name)?.__value;
+            const target = field("Target");
+            switches.push({
+                id: entity.iid,
+                x: entity.px[0],
+                y: entity.px[1],
+                width: entity.width,
+                height: entity.height,
+                player: Number(field("Player") ?? 0),
+                target: target?.entityIid ?? target?.iid ?? null,
+            });
         }
     }
     const tileset = tilesetDefs.get(layer.__tilesetDefUid);
@@ -127,10 +167,11 @@ for (const layer of level.layerInstances ?? []) {
         const key = `ldtkTileset${tileset.uid}`;
         const relPath = tileset.relPath;
         if (!relPath) throw new Error(`Tileset '${tileset.identifier}' must reference an external image.`);
-        tilesets[key] = `/assets/tilesets/${tileset.uid}.png`;
         const atlasPath = resolveProjectAsset(relPath, { matchStem: true });
-        if (!copiedTilesets.has(tileset.uid)) {
-            const atlasTarget = path.resolve(serverDir, `public/assets/tilesets/${tileset.uid}.png`);
+        const atlasName = path.basename(atlasPath);
+        tilesets[key] = `/assets/tilesets/${atlasName}`;
+        if (!copiedTilesets.has(tileset.uid) && atlasPath !== path.resolve(serverDir, `public/assets/tilesets/${atlasName}`)) {
+            const atlasTarget = path.resolve(serverDir, `public/assets/tilesets/${atlasName}`);
             fs.mkdirSync(path.dirname(atlasTarget), { recursive: true });
             fs.copyFileSync(atlasPath, atlasTarget);
             copiedTilesets.add(tileset.uid);
@@ -171,7 +212,13 @@ const solids = [
     { x: -8, y: -300, width: 8, height: 600 },
     { x: level.pxWid, y: -300, width: 8, height: 600 },
 ];
-if (goalPostEntity) {
+if (goalFlagEntity) {
+    // GoalFlag is authored as a rectangle; its bottom-center is the flag pole anchor.
+    goalFlagPosition = {
+        x: goalFlagEntity.px[0] + goalFlagEntity.width / 2,
+        y: goalFlagEntity.px[1] + goalFlagEntity.height,
+    };
+} else if (goalPostEntity) {
     const goalX = goalPostEntity.px[0] + goalPostEntity.width / 2;
     const support = solids.find((solid) => goalX >= solid.x
         && goalX < solid.x + solid.width
@@ -239,6 +286,8 @@ const generated = {
     ...(goalFlagPosition ? { goalFlagPosition } : {}),
     ...(conveyors.length ? { conveyors } : {}),
     ...(button ? { button } : {}),
+    ...(movingPlatforms.length ? { movingPlatforms } : {}),
+    ...(switches.length ? { switches } : {}),
     spawns,
     tiles: tiles.filter((tile) => {
         return !runtimeSprites.some((sprite) => tile.x < sprite.x + sprite.width
@@ -247,14 +296,17 @@ const generated = {
             && tile.y + tile.size > sprite.y);
     }),
     tilesets,
-    ...(level.bgRelPath ? { background: `/assets/backgrounds/${path.basename(level.bgRelPath)}` } : {}),
+    ...(level.bgRelPath ? { background: `/assets/backgrounds/${path.basename(resolveProjectAsset(level.bgRelPath))}` } : {}),
 };
 if (level.bgRelPath) {
     const backgroundPath = resolveProjectAsset(level.bgRelPath);
-    const target = path.resolve(serverDir, `public/assets/backgrounds/${path.basename(level.bgRelPath)}`);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.copyFileSync(backgroundPath, target);
+    const target = path.resolve(serverDir, `public/assets/backgrounds/${path.basename(backgroundPath)}`);
+    if (backgroundPath !== target) {
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(backgroundPath, target);
+    }
 }
-const code = `// Generated from ${path.relative(serverDir, sourcePath)} by scripts/convert-ldtk.mjs. Do not edit.\nexport const LDtkLevel = ${JSON.stringify(generated, null, 4)} as const;\n`;
+const sourceLabel = path.relative(serverDir, sourcePath).split(path.sep).join("/");
+const code = `// Generated from ${sourceLabel} by scripts/convert-ldtk.mjs. Do not edit.\nexport const LDtkLevel = ${JSON.stringify(generated, null, 4)} as const;\n`;
 fs.writeFileSync(outputPath, code);
 console.log(`Converted '${level.identifier}' to ${path.relative(serverDir, outputPath)} (${solids.length} solid rectangles, ${tiles.length} art tiles).`);

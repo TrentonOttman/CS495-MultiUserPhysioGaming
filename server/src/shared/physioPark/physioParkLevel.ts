@@ -1,16 +1,10 @@
-import { LEVEL_2 } from "./levels/level2.js";
 import { LEVEL_1 } from "./levels/level1.js";
+import { LEVEL_2 } from "./levels/level2.js";
+import { LEVEL_3 } from "./levels/level3.js";
 import { allPlayersInsideGoalArea, GROUND_TOP } from "./levels/shared.js";
 import type { ResolvedPhysioParkLevel } from "./levels/types.js";
 
-export { LEVEL_HEIGHT, LEVEL_WIDTH, GOAL, GOAL_AREA_RECT, LAVA, SOLIDS } from "./physioParkCollision.js";
-export type {
-    ButtonDefinition,
-    ButtonCollision,
-    ConveyorCollision as ConveyorDefinition,
-    PhysioParkRect as Rect,
-    ResolvedPhysioParkLevel,
-} from "./levels/types.js";
+export type { ResolvedPhysioParkLevel } from "./levels/types.js";
 export type { LevelObjectiveState, PlayerPoint } from "./levels/types.js";
 export { allPlayersInsideGoalArea };
 
@@ -21,7 +15,5 @@ export const GROUND_Y = GROUND_TOP;
 export const PHYSIO_PARK_LEVELS: readonly ResolvedPhysioParkLevel[] = [
     LEVEL_1,
     LEVEL_2,
+    LEVEL_3,
 ];
-
-// First-level spawn alias retained for existing callers.
-export const spawnPoint = LEVEL_1.spawnPoint;

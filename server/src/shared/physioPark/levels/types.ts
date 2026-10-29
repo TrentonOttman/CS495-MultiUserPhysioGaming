@@ -1,11 +1,23 @@
 import type { Solid } from "../physioParkMovement.js";
 import type { PhysioParkCollidableSpriteKey } from "../physioParkAnimations.js";
 
-export interface PhysioParkRect extends Solid {}
-
 export interface ConveyorCollision {
     surface: Solid;
     pushSpeed: number;
+}
+
+export interface MovingPlatformDefinition extends Solid {
+    id: string;
+    endX: number;
+    endY: number;
+    speed: number;
+    type: string;
+}
+
+export interface PlayerSwitchDefinition extends Solid {
+    id: string;
+    player: number;
+    target: string | null;
 }
 
 export interface ButtonDefinition {
@@ -16,36 +28,19 @@ export interface ButtonDefinition {
     crate: Solid;
 }
 
-/** Legacy name retained for callers that imported the old button collision type. */
-export type ButtonCollision = ButtonDefinition;
-
-/** Collision data that a level definition or future editor loader can provide. */
-export interface PhysioParkLevelCollision {
+/** Data and behavior consumed by the server and client at runtime. */
+export interface ResolvedPhysioParkLevel {
     width: number;
     height: number;
     solids: readonly Solid[];
-    lava: PhysioParkRect;
+    lava: Solid;
     /** Optional visual flag anchor for hand-authored levels. */
     goalPlatform?: Solid;
-    goalArea: PhysioParkRect;
+    goalArea: Solid;
     conveyors?: readonly ConveyorCollision[];
     button?: ButtonDefinition;
-}
-
-export interface PlayerPoint { x: number; y: number; }
-
-export interface LevelObjectiveState {
-    buttonPressed: boolean;
-}
-
-/** Flag-pole position relative to the goal platform's top-left corner. */
-export interface GoalFlagOffset {
-    x: number;
-    y: number;
-}
-
-/** Data and behavior consumed by the server and client at runtime. */
-export interface ResolvedPhysioParkLevel extends PhysioParkLevelCollision {
+    movingPlatforms?: readonly MovingPlatformDefinition[];
+    switches?: readonly PlayerSwitchDefinition[];
     id: string;
     name: string;
     goalFlagOffset?: GoalFlagOffset;
@@ -58,6 +53,18 @@ export interface ResolvedPhysioParkLevel extends PhysioParkLevelCollision {
     goalFlagPosition?: { x: number; y: number };
     spawnPoint(index: number): { x: number; y: number };
     isComplete(players: readonly PlayerPoint[], objectives: LevelObjectiveState): boolean;
+}
+
+export interface PlayerPoint { x: number; y: number; }
+
+export interface LevelObjectiveState {
+    buttonPressed: boolean;
+}
+
+/** Flag-pole position relative to the goal platform's top-left corner. */
+export interface GoalFlagOffset {
+    x: number;
+    y: number;
 }
 
 export interface LevelTile {

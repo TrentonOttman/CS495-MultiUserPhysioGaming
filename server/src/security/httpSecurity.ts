@@ -1,11 +1,11 @@
-import type { Express, Request, Response as ExpressResponse, NextFunction } from "express";
+import type { Application, Request, Response as ExpressResponse, NextFunction } from "express";
 
 const JOIN_CODE_WINDOW_MS = 60_000;
 const JOIN_CODE_MAX_REQUESTS = 10;
 const joinCodeRequests = new Map<string, { count: number; resetAt: number }>();
 
 /** Apply baseline response headers and throttle join-code enumeration by client IP. */
-export function installHttpSecurity(app: Express): void {
+export function installHttpSecurity(app: Application): void {
     // Cloud Run terminates TLS at its proxy and forwards the client address.
     // Trust only the single proxy hop in front of this service.
     app.set("trust proxy", 1);

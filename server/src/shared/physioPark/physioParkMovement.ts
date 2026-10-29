@@ -283,6 +283,7 @@ export class Body {
         public isSensor = false,
         public gravityScale = 1,
         public timeSinceGrounded = 0,
+        public isKinematic = false,
     ) { }
 }
 
@@ -351,10 +352,12 @@ export class PhysicsWorld {
             for (const body of this.bodies) {
                 if (body.isStatic) continue;
 
-                body.velocity = Vec2.add(
-                    body.velocity,
-                    Vec2.multiply(this.gravity, dt * body.gravityScale),
-                );
+                if (!body.isKinematic) {
+                    body.velocity = Vec2.add(
+                        body.velocity,
+                        Vec2.multiply(this.gravity, dt * body.gravityScale),
+                    );
+                }
 
                 const position = Vec2.add(
                     { x: body.rect.x, y: body.rect.y },
@@ -406,7 +409,7 @@ export class PhysicsWorld {
                     const a = this.bodies[i];
                     const b = this.bodies[j];
 
-                    if (a.isStatic && b.isStatic) continue;
+                    if ((a.isStatic || a.isKinematic) && (b.isStatic || b.isKinematic)) continue;
                     if (!a.rect.overlaps(b.rect)) continue;
 
                     if (a.isSensor || b.isSensor) {
@@ -415,8 +418,8 @@ export class PhysicsWorld {
                     }
 
                     const offset = a.rect.collisionOffset(b.rect);
-                    const aMoves = !a.isStatic;
-                    const bMoves = !b.isStatic;
+                    const aMoves = !a.isStatic && !a.isKinematic;
+                    const bMoves = !b.isStatic && !b.isKinematic;
 
                     const aShare = aMoves ? (bMoves ? 0.5 : 1) : 0;
                     const bShare = bMoves ? (aMoves ? 0.5 : 1) : 0;

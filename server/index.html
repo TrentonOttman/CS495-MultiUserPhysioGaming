@@ -661,6 +661,9 @@
         .sensor-panel.is-expanded .sensor-details { grid-template-rows: 1fr; opacity: 1; }
         .sensor-details-inner { overflow: hidden; min-height: 0; }
         .sensor-details-inner > :first-child { margin-top: .75rem; }
+        .sensor-details-inner .slidecontainer { width: 100%; }
+        #sensor-sensitivity { display: block; box-sizing: border-box; width: 100%; height: 2rem; margin: 0; padding: 0; cursor: grab; pointer-events: auto; touch-action: pan-y; }
+        #sensor-sensitivity:active { cursor: grabbing; }
         .sensor-status { display: inline-flex; align-items: center; gap: .4rem; font-size: 1rem; line-height: 1.25; font-weight: 600; white-space: nowrap; }
         .sensor-status[data-status="Connected"] { color: #126b32; }
         .sensor-status[data-status="Connecting"] { color: #916800; }
@@ -694,9 +697,9 @@
         </div>
         <div id="sensor-details" class="sensor-details" aria-hidden="true">
             <div class="sensor-details-inner">
-                <div class="slidecontainer" style = "width: 100%">
+                <div class="slidecontainer">
                     <p>Sensor Sensitivity</p>
-                    <input type="range" min="0.9" max="1" value="0.99999999" step ="0.00000001" class="slider" id="sensor-sensitivity" style = "width: 90%">
+                    <input type="range" min="0.9" max="1" value="0.99999999" step ="0.00000001" class="slider" id="sensor-sensitivity">
                 </div>
                 <p id="sensor-error" hidden></p>
                 <canvas id="sensor-graph" aria-label="Live sensor signal graph"></canvas>

@@ -36,6 +36,19 @@ export const Player = schema({
 });
 export type Player = SchemaType<typeof Player>;
 
+export const MovingPlatformState = schema({
+    x: t.number(),
+    y: t.number(),
+    active: t.boolean().default(false),
+    towardEnd: t.boolean().default(true),
+}, "MovingPlatformState");
+
+export const PlayerSwitchState = schema({
+    active: t.boolean().default(false),
+    /** Increments on every underside hit to trigger client animation and shake. */
+    hitSequence: t.uint16().default(0),
+}, "PlayerSwitchState");
+
 export type PhysioParkLevelPhase = "playing" | "transitioning" | "completed";
 
 export const PhysioParkState = LobbyState.extend({
@@ -55,6 +68,10 @@ export const PhysioParkState = LobbyState.extend({
     crateDropped: t.boolean().default(false),
     crateX: t.number().default(0),
     crateY: t.number().default(0),
+
+    /** Server-authoritative Level 3 switch and platform state keyed by LDtk IID. */
+    movingPlatforms: t.map(MovingPlatformState),
+    playerSwitches: t.map(PlayerSwitchState),
 
 }, "PhysioParkState");
 export type PhysioParkState = SchemaType<typeof PhysioParkState>;

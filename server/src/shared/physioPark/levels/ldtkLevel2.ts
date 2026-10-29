@@ -1,8 +1,8 @@
 // Generated from ../docs/planning/ldtkLevel2/level2.ldtk by scripts/convert-ldtk.mjs. Do not edit.
 export const LDtkLevel = {
-    "id": "Level_0",
-    "name": "Level 0",
-    "width": 350,
+    "id": "Level_2",
+    "name": "Level 2",
+    "width": 366,
     "height": 187,
     "solids": [
         {
@@ -32,13 +32,13 @@ export const LDtkLevel = {
         {
             "x": 256,
             "y": 168,
-            "width": 96,
+            "width": 112,
             "height": 24
         },
         {
-            "x": 272,
-            "y": 128,
-            "width": 48,
+            "x": 280,
+            "y": 120,
+            "width": 56,
             "height": 8
         },
         {
@@ -66,7 +66,7 @@ export const LDtkLevel = {
             "height": 600
         },
         {
-            "x": 350,
+            "x": 366,
             "y": -300,
             "width": 8,
             "height": 600
@@ -79,14 +79,14 @@ export const LDtkLevel = {
         "height": 16
     },
     "goalArea": {
-        "x": 264,
-        "y": 96,
-        "width": 48,
+        "x": 280,
+        "y": 88,
+        "width": 56,
         "height": 32
     },
     "goalFlagPosition": {
-        "x": 288,
-        "y": 128
+        "x": 300,
+        "y": 120
     },
     "conveyors": [
         {
@@ -120,12 +120,12 @@ export const LDtkLevel = {
     "button": {
         "sprite": "buttonPress",
         "position": {
-            "x": 312,
-            "y": 128
+            "x": 320,
+            "y": 120
         },
         "crate": {
-            "x": 328,
-            "y": 120,
+            "x": 344,
+            "y": 112,
             "width": 16,
             "height": 16
         }
@@ -148,8 +148,8 @@ export const LDtkLevel = {
             "flipY": false
         },
         {
-            "x": 272,
-            "y": 128,
+            "x": 280,
+            "y": 120,
             "sourceX": 0,
             "sourceY": 24,
             "size": 8,
@@ -158,18 +158,8 @@ export const LDtkLevel = {
             "flipY": false
         },
         {
-            "x": 280,
-            "y": 128,
-            "sourceX": 8,
-            "sourceY": 24,
-            "size": 8,
-            "tileset": "ldtkTileset2",
-            "flipX": false,
-            "flipY": false
-        },
-        {
             "x": 288,
-            "y": 128,
+            "y": 120,
             "sourceX": 8,
             "sourceY": 24,
             "size": 8,
@@ -179,7 +169,7 @@ export const LDtkLevel = {
         },
         {
             "x": 296,
-            "y": 128,
+            "y": 120,
             "sourceX": 8,
             "sourceY": 24,
             "size": 8,
@@ -189,7 +179,7 @@ export const LDtkLevel = {
         },
         {
             "x": 304,
-            "y": 128,
+            "y": 120,
             "sourceX": 8,
             "sourceY": 24,
             "size": 8,
@@ -199,7 +189,27 @@ export const LDtkLevel = {
         },
         {
             "x": 312,
-            "y": 128,
+            "y": 120,
+            "sourceX": 8,
+            "sourceY": 24,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 320,
+            "y": 120,
+            "sourceX": 8,
+            "sourceY": 24,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 328,
+            "y": 120,
             "sourceX": 16,
             "sourceY": 24,
             "size": 8,
@@ -649,6 +659,26 @@ export const LDtkLevel = {
         },
         {
             "x": 344,
+            "y": 168,
+            "sourceX": 56,
+            "sourceY": 0,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 352,
+            "y": 168,
+            "sourceX": 56,
+            "sourceY": 0,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 360,
             "y": 168,
             "sourceX": 64,
             "sourceY": 0,
@@ -1090,6 +1120,26 @@ export const LDtkLevel = {
         {
             "x": 344,
             "y": 176,
+            "sourceX": 56,
+            "sourceY": 8,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 352,
+            "y": 176,
+            "sourceX": 56,
+            "sourceY": 8,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 360,
+            "y": 176,
             "sourceX": 64,
             "sourceY": 8,
             "size": 8,
@@ -1529,6 +1579,26 @@ export const LDtkLevel = {
         },
         {
             "x": 344,
+            "y": 184,
+            "sourceX": 56,
+            "sourceY": 16,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 352,
+            "y": 184,
+            "sourceX": 56,
+            "sourceY": 16,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 360,
             "y": 184,
             "sourceX": 64,
             "sourceY": 16,
@@ -1539,7 +1609,7 @@ export const LDtkLevel = {
         }
     ],
     "tilesets": {
-        "ldtkTileset2": "/assets/tilesets/2.png"
+        "ldtkTileset2": "/assets/tilesets/AllTiles.png"
     },
     "background": "/assets/backgrounds/SkyCreamVar.png"
 } as const;

@@ -1,4 +1,4 @@
-// Generated from ../docs/planning/ldtkLevel1/level1.ldtk by scripts/convert-ldtk.mjs. Do not edit.
+// Generated from ../docs/planning/ldtkLevel1/Level1.ldtk by scripts/convert-ldtk.mjs. Do not edit.
 export const LDtkLevel = {
     "id": "Level_1",
     "name": "Level 1",
@@ -48,12 +48,14 @@ export const LDtkLevel = {
             "height": 600
         }
     ],
-    "lava": {
-        "x": 104,
-        "y": 160,
-        "width": 104,
-        "height": 24
-    },
+    "lavas": [
+        {
+            "x": 104,
+            "y": 160,
+            "width": 104,
+            "height": 24
+        }
+    ],
     "goalArea": {
         "x": 224,
         "y": 48,

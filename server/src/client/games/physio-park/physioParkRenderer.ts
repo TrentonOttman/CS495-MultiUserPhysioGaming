@@ -130,13 +130,15 @@ export class PhysioParkRenderer {
 
     private drawHazardsAndGoalArea(level: (typeof PHYSIO_PARK_LEVELS)[number]) {
         if (!level.tiles?.length) {
-            this.addToLevel(this.scene.add.rectangle(
-                level.lava.x,
-                level.lava.y,
-                level.lava.width,
-                level.lava.height,
-                0xe8743b,
-            ).setOrigin(0));
+            for (const lavaArea of level.lavas) {
+                this.addToLevel(this.scene.add.rectangle(
+                    lavaArea.x,
+                    lavaArea.y,
+                    lavaArea.width,
+                    lavaArea.height,
+                    0xe8743b,
+                ).setOrigin(0));
+            }
         }
         this.addToLevel(this.scene.add.rectangle(
             level.goalArea.x,

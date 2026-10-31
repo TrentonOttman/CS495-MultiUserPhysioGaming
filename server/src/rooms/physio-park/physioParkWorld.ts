@@ -74,10 +74,12 @@ export function createPhysioParkWorld(
         state.crateY = crate.y;
     }
 
-    const lava = world.add(
-        new Body(new Rect(level.lava.x, level.lava.y, level.lava.width, level.lava.height), { x: 0, y: 0 }, true, true),
-    );
-    lava.tags.add("lava");
+    for (const lavaArea of level.lavas) {
+        const lava = world.add(
+            new Body(new Rect(lavaArea.x, lavaArea.y, lavaArea.width, lavaArea.height), { x: 0, y: 0 }, true, true),
+        );
+        lava.tags.add("lava");
+    }
     world.addOverlapRule({
         actorTag: "player",
         targetTag: "lava",

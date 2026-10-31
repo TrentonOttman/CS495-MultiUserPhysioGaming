@@ -33,7 +33,7 @@ export interface ResolvedPhysioParkLevel {
     width: number;
     height: number;
     solids: readonly Solid[];
-    lava: Solid;
+    lavas: readonly Solid[];
     /** Optional visual flag anchor for hand-authored levels. */
     goalPlatform?: Solid;
     goalArea: Solid;

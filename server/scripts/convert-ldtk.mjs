@@ -245,7 +245,6 @@ for (const cell of lavaCells) {
     lavaBySize.set(cell.size, bucket);
 }
 const lavaRects = [...lavaBySize].flatMap(([size, cells]) => rectanglesFor(cells, size));
-if (lavaRects.length !== 1) throw new Error("This game level format currently supports one contiguous Lava region per LDtk level.");
 let button;
 if (buttonEntity || boxEntity) {
     if (!buttonEntity || !boxEntity) throw new Error("Button and Box entities must both be present for the button/crate mechanic.");
@@ -281,7 +280,7 @@ const generated = {
     width: level.pxWid,
     height: level.pxHei,
     solids,
-    lava: lavaRects[0],
+    lavas: lavaRects,
     goalArea,
     ...(goalFlagPosition ? { goalFlagPosition } : {}),
     ...(conveyors.length ? { conveyors } : {}),

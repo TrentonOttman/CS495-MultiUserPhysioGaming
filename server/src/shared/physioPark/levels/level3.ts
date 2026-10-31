@@ -10,7 +10,7 @@ export const LEVEL_3: ResolvedPhysioParkLevel = {
     width: LDtkLevel.width,
     height: LDtkLevel.height,
     solids: LDtkLevel.solids,
-    lava: LDtkLevel.lava,
+    lavas: LDtkLevel.lavas,
     goalArea: LDtkLevel.goalArea,
     tiles: LDtkLevel.tiles,
     tilesets: LDtkLevel.tilesets,

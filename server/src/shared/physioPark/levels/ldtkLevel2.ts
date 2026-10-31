@@ -72,12 +72,14 @@ export const LDtkLevel = {
             "height": 600
         }
     ],
-    "lava": {
-        "x": 72,
-        "y": 176,
-        "width": 184,
-        "height": 16
-    },
+    "lavas": [
+        {
+            "x": 72,
+            "y": 176,
+            "width": 184,
+            "height": 16
+        }
+    ],
     "goalArea": {
         "x": 280,
         "y": 88,

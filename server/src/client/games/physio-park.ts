@@ -13,6 +13,7 @@ import type { Solid } from "../../shared/physioPark/physioParkMovement.js";
 import type { GoalFlagOffset } from "../../shared/physioPark/levels/types.js";
 import { setupRoom } from "./roomSetup.ts";
 import { getSensitivity, getPeak } from "../../sensor/sensorData.js";
+import { PlayerNameTags } from "./physioParkNameTags.ts";
 
 export interface PhysioParkElements {
     game: HTMLElement;
@@ -60,6 +61,7 @@ const GAME_BACKGROUND = "#f4f1ea";
 /** Renders server-owned game state; Phaser does not run gameplay physics. */
 class PhysioParkScene extends Phaser.Scene {
     private readonly playerEntities = new Map<string, Phaser.GameObjects.Sprite>();
+    private nameTags!: PlayerNameTags;
     private levelContainer: Phaser.GameObjects.Container;
     private crateSprite?: Phaser.GameObjects.Image;
     private buttonSprite?: Phaser.GameObjects.Sprite;
@@ -122,6 +124,7 @@ class PhysioParkScene extends Phaser.Scene {
         this.drawLevel(this.room.state.levelNumber);
         this.createControls();
         this.input_ = this.room.input<MoveInput>({ mode: "reliable" });
+        this.nameTags = new PlayerNameTags(this, this.room.sessionId, RENDER_SCALE, (tag) => this.addWorld(tag));
 
         const callbacks = Callbacks.get(this.room);
         callbacks.onAdd("players", (player: Player, sessionId: string) => this.addPlayer(player, sessionId));
@@ -135,6 +138,7 @@ class PhysioParkScene extends Phaser.Scene {
         this.updateButtonFrame();
         this.updateHud();
         this.updatePlayerSprites(delta);
+        this.nameTags.update(this.room.state.players, this.playerEntities, this.room.state.lobbyPlayers);
     }
 
     private createAnimations() {
@@ -215,6 +219,7 @@ class PhysioParkScene extends Phaser.Scene {
         sprite.setTint(PLAYER_COLORS[player.color % PLAYER_COLORS.length]);
         sprite.play("idle");
         this.playerEntities.set(sessionId, sprite);
+        this.nameTags.add(sessionId);
 
         if (sessionId === this.room.sessionId) {
             this.worldCamera.startFollow(sprite, true, 0.12, 0.12);
@@ -224,6 +229,7 @@ class PhysioParkScene extends Phaser.Scene {
     private removePlayer(sessionId: string) {
         this.playerEntities.get(sessionId)?.destroy();
         this.playerEntities.delete(sessionId);
+        this.nameTags.remove(sessionId);
     }
 
     private updateLevelIfNeeded() {

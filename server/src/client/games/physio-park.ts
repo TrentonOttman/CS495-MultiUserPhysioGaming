@@ -91,6 +91,8 @@ class PhysioParkScene extends Phaser.Scene {
     /** Client-side prediction, or undefined when turned off with `?prediction=off`. */
     private prediction?: PhysioParkClientPrediction;
 
+    private leaderboard: Phaser.GameObjects.Container;
+
     constructor(private readonly room: Room<PhysioParkRoom["state"]>) {
         super("physio-park");
     }
@@ -137,6 +139,26 @@ class PhysioParkScene extends Phaser.Scene {
         const callbacks = Callbacks.get(this.room);
         callbacks.onAdd("players", (player: Player, sessionId: string) => this.addPlayer(player, sessionId));
         callbacks.onRemove("players", (_player: Player, sessionId: string) => this.removePlayer(sessionId));
+
+        const leaderboardPlayers = this.room.state.playerIds.map(
+            (id: string) => ({
+                name: this.room.state.lobbyPlayers.get(id).displayName,
+                deaths: 0,
+                color: this.room.state.players.get(id).color
+            })
+        );
+
+        this.leaderboard = createLeaderboard(this, leaderboardPlayers)
+            .setPosition(UI_RESOLUTION_X / 2, UI_RESOLUTION_Y / 2)
+            .setVisible(false);
+
+        this.ui.add(this.leaderboard);
+
+        const tabKey = this.input.keyboard?.addKey(
+            Phaser.Input.Keyboard.KeyCodes.TAB
+        );
+        tabKey?.on('down', () => this.leaderboard.setVisible(true));
+        tabKey?.on('up', () => this.leaderboard.setVisible(false));
     }
 
     update(time: number, delta: number) {
@@ -596,4 +618,90 @@ export async function startPhysioPark(
     };
 
     new Phaser.Game(config);
+}
+
+function createLeaderboard(scene: PhysioParkScene, players = [
+    { name: 'Avery', deaths: 2, color: 0x3b82f6 },
+    { name: 'Jordan', deaths: 5, color: 0xef4444 },
+    { name: 'Kai', deaths: 1, color: 0x22c55e }
+]): Phaser.GameObjects.Container {
+    // Adjust the panel size here.
+    const WIDTH = 1000;
+    const HEIGHT = 500;
+
+    const PADDING = 20;
+    const CORNER_RADIUS = 18;
+    const TEXT_STYLE = {
+        fontFamily: 'Arial',
+        fontSize: '20px',
+        color: '#ffffff'
+    };
+
+    const panel = scene.add.container(0, 0).setDepth(1000);
+
+    // Panel fill and outline.
+    const background = scene.add.graphics();
+    background.fillStyle(0x111827, 0.96);
+    background.fillRoundedRect(
+        -WIDTH / 2, -HEIGHT / 2, WIDTH, HEIGHT, CORNER_RADIUS
+    );
+    background.lineStyle(3, 0xffffff, 1);
+    background.strokeRoundedRect(
+        -WIDTH / 2, -HEIGHT / 2, WIDTH, HEIGHT, CORNER_RADIUS
+    );
+    panel.add(background);
+
+    const innerWidth = WIDTH - PADDING * 2;
+    const left = -WIDTH / 2 + PADDING;
+    const right = WIDTH / 2 - PADDING;
+
+    // Table header.
+    const headerY = -HEIGHT / 2 + PADDING;
+    const headerHeight = 38;
+
+    panel.add(scene.add.rectangle(
+        0, headerY + headerHeight / 2, innerWidth, headerHeight, 0x263449
+    ));
+
+    panel.add(scene.add.text(left + 12, headerY + headerHeight / 2, 'Player', {
+        ...TEXT_STYLE,
+        fontStyle: 'bold'
+    }).setOrigin(0, 0.5));
+
+    panel.add(scene.add.text(right - 12, headerY + headerHeight / 2, 'Deaths', {
+        ...TEXT_STYLE,
+        fontStyle: 'bold'
+    }).setOrigin(1, 0.5));
+
+    // Player rows.
+    const ROW_COUNT = 8;
+    const rowsTop = headerY + headerHeight + 6;
+    const rowsBottom = HEIGHT / 2 - 18;
+    const rowSlotHeight = (rowsBottom - rowsTop) / ROW_COUNT;
+
+    for (let index = 0; index < ROW_COUNT; index++) {
+        const player = players[index];
+        const rowY = rowsTop + index * rowSlotHeight + rowSlotHeight / 2;
+        const rowHeight = Math.max(1, rowSlotHeight - 4);
+
+        panel.add(scene.add.rectangle(
+            0,
+            rowY,
+            innerWidth,
+            rowHeight,
+            player?.color ?? 0x263449
+        ));
+
+        if (player) {
+            panel.add(scene.add.text(
+                left + 12, rowY, player.name, TEXT_STYLE
+            ).setOrigin(0, 0.5));
+
+            panel.add(scene.add.text(
+                right - 12, rowY, String(player.deaths), TEXT_STYLE
+            ).setOrigin(1, 0.5));
+        }
+    }
+
+    return panel;
 }

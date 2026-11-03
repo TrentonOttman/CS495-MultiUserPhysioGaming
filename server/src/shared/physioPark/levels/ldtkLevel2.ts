@@ -86,6 +86,15 @@ export const LDtkLevel = {
         "width": 56,
         "height": 32
     },
+    "boxes": [
+        {
+            "id": "e985eea0-bde0-11f1-8f94-058d05ed1bfa",
+            "x": 344,
+            "y": 104,
+            "width": 16,
+            "height": 16
+        }
+    ],
     "goalFlagPosition": {
         "x": 300,
         "y": 120
@@ -125,13 +134,22 @@ export const LDtkLevel = {
             "x": 320,
             "y": 120
         },
-        "crate": {
-            "x": 344,
-            "y": 112,
-            "width": 16,
-            "height": 16
-        }
+        "target": "444c51d0-bde0-11f1-8f94-bf72aca44341"
     },
+    "movingPlatforms": [
+        {
+            "id": "444c51d0-bde0-11f1-8f94-bf72aca44341",
+            "x": 344,
+            "y": 120,
+            "width": 24,
+            "height": 8,
+            "endX": 384,
+            "endY": 120,
+            "speed": 10,
+            "type": "Stone",
+            "movementType": "Once"
+        }
+    ],
     "spawns": [
         {
             "x": 8,
@@ -144,6 +162,16 @@ export const LDtkLevel = {
             "y": 16,
             "sourceX": 24,
             "sourceY": 0,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 336,
+            "y": 80,
+            "sourceX": 56,
+            "sourceY": 56,
             "size": 8,
             "tileset": "ldtkTileset2",
             "flipX": false,

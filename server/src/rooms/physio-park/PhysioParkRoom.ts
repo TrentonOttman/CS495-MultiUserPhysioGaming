@@ -40,10 +40,10 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     private currentLevelIndex = 0;
     private transitionScheduled = false;
     private inputLockedUntilFresh = new Set<string>();
-    private crateBody: Body | undefined;
     private buttonBody: Body | undefined;
     private buttonPressTick = 0;
     private movingPlatformBodies = new Map<string, Body>();
+    private boxBodies = new Map<string, Body>();
 
     /** Physics steps at 60 Hz; state patches are sent at 30 Hz. */
     patchRate = 1000 / 30;
@@ -197,12 +197,12 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             player.vx = body.velocity.x;
         }
 
-        if (this.crateBody && !this.crateBody.isStatic) {
+        for (const boxBody of this.boxBodies.values()) {
             for (const conveyor of this.currentLevel.conveyors ?? []) {
-                if (!isStandingOn(this.crateBody, conveyor.surface)) continue;
-                this.crateBody.velocity = {
+                if (!isStandingOn(boxBody, conveyor.surface)) continue;
+                boxBody.velocity = {
                     x: conveyor.pushSpeed,
-                    y: this.crateBody.velocity.y,
+                    y: boxBody.velocity.y,
                 };
                 break;
             }
@@ -254,7 +254,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
                     && !playersOnButtonBeforeStep.has(sessionId)
                     && isCenteredOnButton(body, surface);
             });
-            if (landedOnButton) this.dropCrateFromButton();
+            if (landedOnButton) this.pressButton();
         }
 
         for (const [sessionId, player] of this.state.players) {
@@ -269,9 +269,11 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             player.grounded = body.timeSinceGrounded === 0;
         }
 
-        if (this.crateBody) {
-            this.state.crateX = this.crateBody.rect.x;
-            this.state.crateY = this.crateBody.rect.y;
+        for (const [id, body] of this.boxBodies) {
+            const boxState = this.state.boxes.get(id);
+            if (!boxState) continue;
+            boxState.x = body.rect.x;
+            boxState.y = body.rect.y;
         }
 
         const activePlayers = [...this.state.players.values()]
@@ -366,21 +368,22 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             (body) => this.respawnFromLava(body),
         );
         this.world = parts.world;
-        this.crateBody = parts.crateBody;
         this.buttonBody = parts.buttonBody;
         this.movingPlatformBodies = parts.movingPlatformBodies;
+        this.boxBodies = parts.boxBodies;
     }
 
-    /** Landing on the button activates its one-time crate drop. */
-    private dropCrateFromButton() {
-        if (!this.currentLevel.button || !this.buttonBody || !this.crateBody || this.state.buttonPressed) return;
+    /** Landing on the button activates its target platform once. */
+    private pressButton() {
+        const button = this.currentLevel.button;
+        if (!button || !this.buttonBody || this.state.buttonPressed) return;
         this.state.buttonPressed = true;
         this.state.buttonPressFrame = 0;
         this.buttonPressTick = 0;
-        this.state.crateDropped = true;
-        this.crateBody.isStatic = false;
-        this.crateBody.velocity = { x: 0, y: 0 };
-        this.crateBody.timeSinceGrounded = 0;
+
+        if (!button.target) return;
+        const platformState = this.state.movingPlatforms.get(button.target);
+        if (platformState) platformState.active = true;
     }
 
     /** Keep the server collider on the same animation frame as the rendered cap. */

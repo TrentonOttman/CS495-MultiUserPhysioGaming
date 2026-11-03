@@ -23,13 +23,18 @@ type MovingPlatformView = {
     width: number;
     height: number;
 };
+type BoxView = {
+    sprite: Phaser.GameObjects.Image;
+    width: number;
+    height: number;
+};
 
 const TILE_SIZE = 16;
 
 /** Draws LDtk-authored levels and projects the server's dynamic object state. */
 export class PhysioParkRenderer {
     private readonly levelContainer: Phaser.GameObjects.Container;
-    private crateSprite?: Phaser.GameObjects.Image;
+    private readonly boxSprites = new Map<string, BoxView>();
     private buttonSprite?: Phaser.GameObjects.Sprite;
     private buttonAnimation?: SpriteSheetAnimationDefinition;
     private renderedButtonFrame = 0;
@@ -47,14 +52,17 @@ export class PhysioParkRenderer {
     }
 
     update() {
-        this.crateSprite?.setPosition(this.room.state.crateX + 8, this.room.state.crateY + 8);
+        for (const [id, view] of this.boxSprites) {
+            const state = this.room.state.boxes.get(id);
+            if (state) view.sprite.setPosition(state.x + view.width / 2, state.y + view.height / 2);
+        }
         this.updateButtonFrame();
         this.updateMovingObjects();
     }
 
     drawLevel(levelNumber: number) {
         this.levelContainer.removeAll(true);
-        this.crateSprite = undefined;
+        this.boxSprites.clear();
         this.buttonSprite = undefined;
         this.buttonAnimation = undefined;
         this.movingPlatformSprites.clear();
@@ -77,7 +85,7 @@ export class PhysioParkRenderer {
         if (level.goalFlagPosition) this.drawGoalFlagAt(level.goalFlagPosition);
         else if (level.goalPlatform && level.goalFlagOffset) this.drawGoalFlag(level.goalPlatform, level.goalFlagOffset);
         this.drawMovingObjects(level);
-        this.drawButtonAndCrate(level);
+        this.drawButtonAndBoxes(level);
     }
 
     private updateMovingObjects() {
@@ -209,31 +217,37 @@ export class PhysioParkRenderer {
             .play(flag.animationKey!));
     }
 
-    private drawButtonAndCrate(level: (typeof PHYSIO_PARK_LEVELS)[number]) {
-        if (!level.button) return;
-        const { position, crate } = level.button;
-        const animation = PHYSIO_PARK_ANIMATIONS[level.button.sprite];
-        this.buttonAnimation = animation;
-        this.buttonSprite = this.addToLevel(this.scene.add.sprite(position.x, position.y, animation.textureKey)
-            .setOrigin(animation.originX, animation.originY)
-            .setScale(animation.scaleX, animation.scaleY));
+    private drawButtonAndBoxes(level: (typeof PHYSIO_PARK_LEVELS)[number]) {
+        if (level.button) {
+            const { position } = level.button;
+            const animation = PHYSIO_PARK_ANIMATIONS[level.button.sprite];
+            this.buttonAnimation = animation;
+            this.buttonSprite = this.addToLevel(this.scene.add.sprite(position.x, position.y, animation.textureKey)
+                .setOrigin(animation.originX, animation.originY)
+                .setScale(animation.scaleX, animation.scaleY));
 
-        const frameIndex = Math.min(this.room.state.buttonPressFrame, animation.frames.length - 1);
-        this.buttonSprite.setFrame(String(animation.frames[frameIndex]));
-        this.renderedButtonFrame = frameIndex;
-        this.crateSprite = this.addToLevel(this.scene.add.image(
-            this.room.state.crateX + crate.width / 2,
-            this.room.state.crateY + crate.height / 2,
-            "crate16",
-        ).setOrigin(0.5));
+            const frameIndex = Math.min(this.room.state.buttonPressFrame, animation.frames.length - 1);
+            this.buttonSprite.setFrame(String(animation.frames[frameIndex]));
+            this.renderedButtonFrame = frameIndex;
+        }
+
+        for (const box of level.boxes ?? []) {
+            const texture = box.width === 32 && box.height === 32 ? "crate32" : "crate16";
+            const sprite = this.addToLevel(this.scene.add.image(
+                box.x + box.width / 2,
+                box.y + box.height / 2,
+                texture,
+            ).setOrigin(0.5).setDisplaySize(box.width, box.height));
+            this.boxSprites.set(box.id, { sprite, width: box.width, height: box.height });
+        }
     }
 
     private drawMovingObjects(level: (typeof PHYSIO_PARK_LEVELS)[number]) {
         for (const platform of level.movingPlatforms ?? []) {
             const textureKey = platform.type.trim().toLowerCase() === "stone"
-                ? platform.width === 16 && platform.height === 16
+                ? platform.width === 16
                     ? "moving-platform-stone-16"
-                    : platform.width === 24 && platform.height === 24
+                    : platform.width === 24
                         ? "moving-platform-stone-24"
                         : undefined
                 : undefined;

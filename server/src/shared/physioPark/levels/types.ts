@@ -6,12 +6,15 @@ export interface ConveyorCollision {
     pushSpeed: number;
 }
 
+export type MovingPlatformMovementType = "Once" | "PingPong";
+
 export interface MovingPlatformDefinition extends Solid {
     id: string;
     endX: number;
     endY: number;
     speed: number;
     type: string;
+    movementType: MovingPlatformMovementType;
 }
 
 export interface PlayerSwitchDefinition extends Solid {
@@ -20,12 +23,17 @@ export interface PlayerSwitchDefinition extends Solid {
     target: string | null;
 }
 
+export interface BoxDefinition extends Solid {
+    id: string;
+}
+
 export interface ButtonDefinition {
     /** Sprite and animation manifest entry used to draw and collide with the button. */
     sprite: PhysioParkCollidableSpriteKey;
     /** Bottom-center world anchor used by the button sprite. */
     position: { x: number; y: number };
-    crate: Solid;
+    /** Entity IID of the moving platform this button activates. */
+    target: string | null;
 }
 
 /** Data and behavior consumed by the server and client at runtime. */
@@ -37,6 +45,7 @@ export interface ResolvedPhysioParkLevel {
     /** Optional visual flag anchor for hand-authored levels. */
     goalPlatform?: Solid;
     goalArea: Solid;
+    boxes?: readonly BoxDefinition[];
     conveyors?: readonly ConveyorCollision[];
     button?: ButtonDefinition;
     movingPlatforms?: readonly MovingPlatformDefinition[];

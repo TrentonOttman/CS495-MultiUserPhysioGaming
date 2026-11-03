@@ -2,13 +2,13 @@ import { getButtonSurface } from "./physioParkRoomMechanics.js";
 import type { ResolvedPhysioParkLevel } from "../../shared/physioPark/physioParkLevel.js";
 import { Body, PhysicsWorld, Rect } from "../../shared/physioPark/physioParkMovement.js";
 import { GRAVITY } from "../../shared/physioPark/physioParkConstants.js";
-import { MovingPlatformState, PlayerSwitchState, type PhysioParkState } from "../schema/PhysioParkState.js";
+import { BoxState, MovingPlatformState, PlayerSwitchState, type PhysioParkState } from "../schema/PhysioParkState.js";
 
 export interface PhysioParkWorldParts {
     world: PhysicsWorld;
-    crateBody?: Body;
     buttonBody?: Body;
     movingPlatformBodies: Map<string, Body>;
+    boxBodies: Map<string, Body>;
 }
 
 export function createPhysioParkWorld(
@@ -19,16 +19,14 @@ export function createPhysioParkWorld(
 ): PhysioParkWorldParts {
     const world = new PhysicsWorld({ x: 0, y: GRAVITY });
     const movingPlatformBodies = new Map<string, Body>();
-    let crateBody: Body | undefined;
+    const boxBodies = new Map<string, Body>();
     let buttonBody: Body | undefined;
 
     state.buttonPressed = false;
     state.buttonPressFrame = 0;
-    state.crateDropped = false;
-    state.crateX = 0;
-    state.crateY = 0;
     state.movingPlatforms.clear();
     state.playerSwitches.clear();
+    state.boxes.clear();
 
     for (const solid of level.solids) {
         world.add(new Body(new Rect(solid.x, solid.y, solid.width, solid.height), { x: 0, y: 0 }, true));
@@ -45,6 +43,7 @@ export function createPhysioParkWorld(
             y: platform.y,
             active: false,
             towardEnd: true,
+            reachedEnd: false,
         }));
     }
 
@@ -64,14 +63,14 @@ export function createPhysioParkWorld(
             true,
         ));
 
-        const crate = level.button.crate;
-        crateBody = world.add(new Body(
-            new Rect(crate.x, crate.y, crate.width, crate.height),
-            { x: 0, y: 0 },
-            true,
+    }
+
+    for (const box of level.boxes ?? []) {
+        const body = world.add(new Body(
+            new Rect(box.x, box.y, box.width, box.height),
         ));
-        state.crateX = crate.x;
-        state.crateY = crate.y;
+        boxBodies.set(box.id, body);
+        state.boxes.set(box.id, new BoxState({ x: box.x, y: box.y }));
     }
 
     for (const lavaArea of level.lavas) {
@@ -88,5 +87,5 @@ export function createPhysioParkWorld(
 
     for (const body of playerBodies) world.add(body);
 
-    return { world, crateBody, buttonBody, movingPlatformBodies };
+    return { world, buttonBody, movingPlatformBodies, boxBodies };
 }

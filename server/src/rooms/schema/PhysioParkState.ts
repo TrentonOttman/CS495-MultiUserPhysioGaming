@@ -41,6 +41,7 @@ export const MovingPlatformState = schema({
     y: t.number(),
     active: t.boolean().default(false),
     towardEnd: t.boolean().default(true),
+    reachedEnd: t.boolean().default(false),
 }, "MovingPlatformState");
 
 export const PlayerSwitchState = schema({
@@ -48,6 +49,11 @@ export const PlayerSwitchState = schema({
     /** Increments on every underside hit to trigger client animation and shake. */
     hitSequence: t.uint16().default(0),
 }, "PlayerSwitchState");
+
+export const BoxState = schema({
+    x: t.number(),
+    y: t.number(),
+}, "BoxState");
 
 export type PhysioParkLevelPhase = "playing" | "transitioning" | "completed";
 
@@ -61,13 +67,12 @@ export const PhysioParkState = LobbyState.extend({
     /** Server-authoritative phase shared by every client. */
     levelPhase: t.string<PhysioParkLevelPhase>().default("playing"),
 
-    /** Replicated state for the one-use button and falling crate on level two. */
+    /** Replicated state for the one-use button on level two. */
     buttonPressed: t.boolean().default(false),
     /** Current server-synchronized frame of the button's press animation. */
     buttonPressFrame: t.uint8().default(0),
-    crateDropped: t.boolean().default(false),
-    crateX: t.number().default(0),
-    crateY: t.number().default(0),
+    /** Server-authoritative positions for all gravity-driven level boxes. */
+    boxes: t.map(BoxState),
 
     /** Server-authoritative Level 3 switch and platform state keyed by LDtk IID. */
     movingPlatforms: t.map(MovingPlatformState),

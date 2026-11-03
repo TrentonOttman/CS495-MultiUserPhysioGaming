@@ -2,7 +2,7 @@
 export const LDtkLevel = {
     "id": "Level_3",
     "name": "Level 3",
-    "width": 286,
+    "width": 342,
     "height": 187,
     "solids": [
         {
@@ -14,7 +14,7 @@ export const LDtkLevel = {
         {
             "x": 200,
             "y": 168,
-            "width": 88,
+            "width": 144,
             "height": 24
         },
         {
@@ -24,7 +24,7 @@ export const LDtkLevel = {
             "height": 600
         },
         {
-            "x": 286,
+            "x": 342,
             "y": -300,
             "width": 8,
             "height": 600
@@ -56,9 +56,10 @@ export const LDtkLevel = {
             "width": 24,
             "height": 24,
             "endX": 120,
-            "endY": 160,
+            "endY": 144,
             "speed": 20,
-            "type": "Stone"
+            "type": "Stone",
+            "movementType": "PingPong"
         },
         {
             "id": "75c11020-bde0-11f1-8f94-c7fe059b08f5",
@@ -67,9 +68,10 @@ export const LDtkLevel = {
             "width": 24,
             "height": 24,
             "endX": 160,
-            "endY": 160,
+            "endY": 144,
             "speed": 20,
-            "type": "Stone"
+            "type": "Stone",
+            "movementType": "PingPong"
         }
     ],
     "switches": [
@@ -502,6 +504,76 @@ export const LDtkLevel = {
         {
             "x": 280,
             "y": 168,
+            "sourceX": 56,
+            "sourceY": 0,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 288,
+            "y": 168,
+            "sourceX": 56,
+            "sourceY": 0,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 296,
+            "y": 168,
+            "sourceX": 56,
+            "sourceY": 0,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 304,
+            "y": 168,
+            "sourceX": 56,
+            "sourceY": 0,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 312,
+            "y": 168,
+            "sourceX": 56,
+            "sourceY": 0,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 320,
+            "y": 168,
+            "sourceX": 56,
+            "sourceY": 0,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 328,
+            "y": 168,
+            "sourceX": 56,
+            "sourceY": 0,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 336,
+            "y": 168,
             "sourceX": 64,
             "sourceY": 0,
             "size": 8,
@@ -862,6 +934,76 @@ export const LDtkLevel = {
         {
             "x": 280,
             "y": 176,
+            "sourceX": 56,
+            "sourceY": 8,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 288,
+            "y": 176,
+            "sourceX": 56,
+            "sourceY": 8,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 296,
+            "y": 176,
+            "sourceX": 56,
+            "sourceY": 8,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 304,
+            "y": 176,
+            "sourceX": 56,
+            "sourceY": 8,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 312,
+            "y": 176,
+            "sourceX": 56,
+            "sourceY": 8,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 320,
+            "y": 176,
+            "sourceX": 56,
+            "sourceY": 8,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 328,
+            "y": 176,
+            "sourceX": 56,
+            "sourceY": 8,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 336,
+            "y": 176,
             "sourceX": 64,
             "sourceY": 8,
             "size": 8,
@@ -1221,6 +1363,76 @@ export const LDtkLevel = {
         },
         {
             "x": 280,
+            "y": 184,
+            "sourceX": 56,
+            "sourceY": 16,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 288,
+            "y": 184,
+            "sourceX": 56,
+            "sourceY": 16,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 296,
+            "y": 184,
+            "sourceX": 56,
+            "sourceY": 16,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 304,
+            "y": 184,
+            "sourceX": 56,
+            "sourceY": 16,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 312,
+            "y": 184,
+            "sourceX": 56,
+            "sourceY": 16,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 320,
+            "y": 184,
+            "sourceX": 56,
+            "sourceY": 16,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 328,
+            "y": 184,
+            "sourceX": 56,
+            "sourceY": 16,
+            "size": 8,
+            "tileset": "ldtkTileset2",
+            "flipX": false,
+            "flipY": false
+        },
+        {
+            "x": 336,
             "y": 184,
             "sourceX": 64,
             "sourceY": 16,

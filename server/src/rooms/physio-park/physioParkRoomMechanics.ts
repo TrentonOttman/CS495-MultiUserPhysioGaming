@@ -6,7 +6,13 @@ import type { Player } from "../schema/PhysioParkState.js";
 import type { Body, Solid } from "../../shared/physioPark/physioParkMovement.js";
 
 type StateMap<T> = { get(key: string): T | undefined };
-type MovingPlatformRuntimeState = { x: number; y: number; active: boolean; towardEnd: boolean };
+type MovingPlatformRuntimeState = {
+    x: number;
+    y: number;
+    active: boolean;
+    towardEnd: boolean;
+    reachedEnd: boolean;
+};
 type PlayerSwitchRuntimeState = { active: boolean; hitSequence: number };
 
 export function isStandingOn(body: Body, surface: Solid): boolean {
@@ -93,20 +99,17 @@ export function advanceMovingPlatforms(
     for (const platform of platforms) {
         const state = states.get(platform.id);
         const body = bodies.get(platform.id);
-        if (!state || !body || !state.active) {
+        if (!state || !body || !state.active || state.reachedEnd) {
             if (body) body.velocity = { x: 0, y: 0 };
             continue;
         }
 
         const targetX = state.towardEnd ? platform.endX : platform.x;
         const targetY = state.towardEnd ? platform.endY : platform.y;
-        const dx = targetX - body.rect.x;
-        const dy = targetY - body.rect.y;
+        const dx = targetX - state.x;
+        const dy = targetY - state.y;
         const distance = Math.hypot(dx, dy);
         if (distance <= 0.001) {
-            body.rect.x = targetX;
-            body.rect.y = targetY;
-            state.towardEnd = !state.towardEnd;
             body.velocity = { x: 0, y: 0 };
             continue;
         }
@@ -126,14 +129,31 @@ export function finishMovingPlatforms(
         const state = states.get(platform.id);
         const body = bodies.get(platform.id);
         if (!state || !body) continue;
+
+        // The body is kinematic, and its replicated path position is authoritative.
+        // Restore the exact expected position after collision resolution so player
+        // contacts cannot accumulate any drift into its route.
+        const nextX = state.x + body.velocity.x / TICK_RATE;
+        const nextY = state.y + body.velocity.y / TICK_RATE;
+        body.rect.x = nextX;
+        body.rect.y = nextY;
+        state.x = nextX;
+        state.y = nextY;
+
         const targetX = state.towardEnd ? platform.endX : platform.x;
         const targetY = state.towardEnd ? platform.endY : platform.y;
-        if (Math.hypot(targetX - body.rect.x, targetY - body.rect.y) <= 0.01) {
+        if (Math.hypot(targetX - state.x, targetY - state.y) <= 0.01) {
             body.rect.x = targetX;
             body.rect.y = targetY;
-            state.towardEnd = !state.towardEnd;
+            state.x = targetX;
+            state.y = targetY;
+            if (platform.movementType === "PingPong") {
+                state.towardEnd = !state.towardEnd;
+            } else {
+                state.reachedEnd = true;
+                state.active = false;
+                body.velocity = { x: 0, y: 0 };
+            }
         }
-        state.x = body.rect.x;
-        state.y = body.rect.y;
     }
 }

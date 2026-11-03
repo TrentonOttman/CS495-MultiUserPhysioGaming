@@ -418,6 +418,8 @@ export class PhysicsWorld {
                     }
 
                     const offset = a.rect.collisionOffset(b.rect);
+                    // Kinematic bodies follow their server-authored path. Contacts
+                    // can move dynamic bodies, but never deflect kinematic ones.
                     const aMoves = !a.isStatic && !a.isKinematic;
                     const bMoves = !b.isStatic && !b.isKinematic;
 

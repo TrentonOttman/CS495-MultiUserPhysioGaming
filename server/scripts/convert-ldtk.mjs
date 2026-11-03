@@ -28,6 +28,29 @@ for (const definition of project.defs.layers) {
         semanticValues.set(`${definition.uid}:${value.value}`, value.identifier);
     }
 }
+const entitiesByIid = new Map(
+    (level.layerInstances ?? []).flatMap((layer) => layer?.entityInstances ?? [])
+        .map((entity) => [entity.iid, entity]),
+);
+
+function getEntityField(entity, name) {
+    return entity.fieldInstances?.find((entry) => entry.__identifier === name)?.__value;
+}
+
+function resolveEntityReference(entity, fieldName, expectedIdentifier) {
+    const reference = getEntityField(entity, fieldName);
+    if (!reference) return null;
+
+    const entityIid = reference.entityIid ?? reference.iid;
+    if (!entityIid) throw new Error(`${entityDefs.get(entity.defUid)} '${entity.iid}' has an invalid ${fieldName} reference.`);
+    const target = entitiesByIid.get(entityIid);
+    if (!target) throw new Error(`${entityDefs.get(entity.defUid)} '${entity.iid}' references missing entity '${entityIid}'.`);
+    const targetIdentifier = entityDefs.get(target.defUid);
+    if (expectedIdentifier && targetIdentifier !== expectedIdentifier) {
+        throw new Error(`${entityDefs.get(entity.defUid)} '${entity.iid}' ${fieldName} must reference a ${expectedIdentifier}, not ${targetIdentifier}.`);
+    }
+    return target;
+}
 
 // Turn grid cells into maximal rectangles. Horizontal runs are merged vertically
 // when their x coordinate and width match, keeping collision data compact.
@@ -94,12 +117,12 @@ const copiedTilesets = new Set();
 const spawns = [];
 const movingPlatforms = [];
 const switches = [];
+const boxes = [];
 let goalArea;
 let goalPostEntity;
 let goalFlagEntity;
 let goalFlagPosition;
 let buttonEntity;
-let boxEntity;
 let lavaCells = [];
 const conveyorCells = new Map();
 for (const layer of level.layerInstances ?? []) {
@@ -130,33 +153,51 @@ for (const layer of level.layerInstances ?? []) {
         } else if (identifier === "Button") {
             buttonEntity = entity;
         } else if (identifier === "Box") {
-            boxEntity = entity;
+            boxes.push({
+                id: entity.iid,
+                x: entity.px[0],
+                y: entity.px[1],
+                width: entity.width,
+                height: entity.height,
+            });
         } else if (identifier === "MovingPlatform") {
-            const field = (name) => entity.fieldInstances?.find((entry) => entry.__identifier === name)?.__value;
-            const endpoint = field("endPoint");
+            const endpointReference = resolveEntityReference(entity, "EndPoint", "MovingPlatformEndpoint");
+            const legacyEndpoint = getEntityField(entity, "endPoint");
             const gridSize = layer.__gridSize;
+            // Entity endpoints are authored at the desired platform top-left;
+            // legacy point fields are still accepted for older LDtk projects.
+            const endX = endpointReference
+                ? endpointReference.px[0]
+                : legacyEndpoint ? legacyEndpoint.cx * gridSize : entity.px[0];
+            const endY = endpointReference
+                ? endpointReference.px[1]
+                : legacyEndpoint ? legacyEndpoint.cy * gridSize : entity.px[1];
+            const movementType = getEntityField(entity, "MovementType") ?? "PingPong";
+            if (movementType !== "Once" && movementType !== "PingPong") {
+                throw new Error(`MovingPlatform '${entity.iid}' has unsupported MovementType '${movementType}'.`);
+            }
             movingPlatforms.push({
                 id: entity.iid,
                 x: entity.px[0],
                 y: entity.px[1],
                 width: entity.width,
                 height: entity.height,
-                endX: endpoint ? endpoint.cx * gridSize : entity.px[0],
-                endY: endpoint ? endpoint.cy * gridSize : entity.px[1],
-                speed: Number(field("speed") ?? 20),
-                type: field("PlatformType") ?? "Stone",
+                endX,
+                endY,
+                speed: Number(getEntityField(entity, "speed") ?? 20),
+                type: getEntityField(entity, "PlatformType") ?? "Stone",
+                movementType,
             });
         } else if (identifier === "PlayerSwitch") {
-            const field = (name) => entity.fieldInstances?.find((entry) => entry.__identifier === name)?.__value;
-            const target = field("Target");
+            const target = resolveEntityReference(entity, "Target", "MovingPlatform");
             switches.push({
                 id: entity.iid,
                 x: entity.px[0],
                 y: entity.px[1],
                 width: entity.width,
                 height: entity.height,
-                player: Number(field("Player") ?? 0),
-                target: target?.entityIid ?? target?.iid ?? null,
+                player: Number(getEntityField(entity, "Player") ?? 0),
+                target: target?.iid ?? null,
             });
         }
     }
@@ -246,14 +287,14 @@ for (const cell of lavaCells) {
 }
 const lavaRects = [...lavaBySize].flatMap(([size, cells]) => rectanglesFor(cells, size));
 let button;
-if (buttonEntity || boxEntity) {
-    if (!buttonEntity || !boxEntity) throw new Error("Button and Box entities must both be present for the button/crate mechanic.");
+if (buttonEntity) {
+    const target = resolveEntityReference(buttonEntity, "Target", "MovingPlatform");
     button = {
         sprite: "buttonPress",
         // Button.position is the bottom-center anchor. The LDtk marker's y is
         // already placed on the platform top, so don't add the marker height.
         position: { x: buttonEntity.px[0] + buttonEntity.width / 2, y: buttonEntity.px[1] },
-        crate: { x: boxEntity.px[0], y: boxEntity.px[1], width: boxEntity.width, height: boxEntity.height },
+        target: target?.iid ?? null,
     };
 }
 const runtimeSprites = [];
@@ -265,14 +306,7 @@ if (buttonEntity) {
         height: 16,
     });
 }
-if (boxEntity) {
-    runtimeSprites.push({
-        x: boxEntity.px[0],
-        y: boxEntity.px[1],
-        width: boxEntity.width,
-        height: boxEntity.height,
-    });
-}
+for (const box of boxes) runtimeSprites.push(box);
 
 const generated = {
     id: level.identifier,
@@ -282,6 +316,7 @@ const generated = {
     solids,
     lavas: lavaRects,
     goalArea,
+    ...(boxes.length ? { boxes } : {}),
     ...(goalFlagPosition ? { goalFlagPosition } : {}),
     ...(conveyors.length ? { conveyors } : {}),
     ...(button ? { button } : {}),

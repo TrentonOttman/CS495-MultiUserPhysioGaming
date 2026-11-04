@@ -141,22 +141,7 @@ export class PhysioParkScene extends Phaser.Scene {
         callbacks.onAdd("players", (player: Player, sessionId: string) => this.addPlayer(player, sessionId));
         callbacks.onRemove("players", (_player: Player, sessionId: string) => this.removePlayer(sessionId));
 
-        const board = createStatBoard(this, this.getPlayerStats());
-        this.statBoard = board.container
-            .setPosition(UI_RESOLUTION_X / 2, UI_RESOLUTION_Y / 2)
-            .setVisible(false);
-
-        this.ui.add(this.statBoard);
-
-        callbacks.onChange("deathCount", () => {
-            board.update(this.getPlayerStats());
-        });
-
-        const tabKey = this.input.keyboard?.addKey(
-            Phaser.Input.Keyboard.KeyCodes.TAB
-        );
-        tabKey?.on('down', () => this.statBoard.setVisible(true));
-        tabKey?.on('up', () => this.statBoard.setVisible(false));
+        this.createStatBoard(callbacks);
     }
 
     update(time: number, delta: number) {
@@ -240,6 +225,25 @@ export class PhysioParkScene extends Phaser.Scene {
             right: [keyboard.addKey(keyCodes.D), keyboard.addKey(keyCodes.RIGHT)],
             jump: [keyboard.addKey(keyCodes.W), keyboard.addKey(keyCodes.UP), keyboard.addKey(keyCodes.SPACE)],
         };
+    }
+
+    private createStatBoard(callbacks: any) {
+        const board = createStatBoard(this, this.getPlayerStats());
+        this.statBoard = board.container
+            .setPosition(UI_RESOLUTION_X / 2, UI_RESOLUTION_Y / 2)
+            .setVisible(false);
+
+        this.ui.add(this.statBoard);
+
+        callbacks.onChange("deathCount", () => {
+            board.update(this.getPlayerStats());
+        });
+
+        const tabKey = this.input.keyboard?.addKey(
+            Phaser.Input.Keyboard.KeyCodes.TAB
+        );
+        tabKey?.on('down', () => this.statBoard.setVisible(true));
+        tabKey?.on('up', () => this.statBoard.setVisible(false));
     }
 
     private addPlayer(player: Player, sessionId: string) {
@@ -579,7 +583,7 @@ export class PhysioParkScene extends Phaser.Scene {
             (id: string) => ({
                 name: state.lobbyPlayers.get(id).displayName,
                 deaths: state.deathCount.get(id) ?? 0,
-                color: state.players.get(id).color
+                color: PLAYER_COLORS[state.players.get(id).color % PLAYER_COLORS.length],
             })
         );
     }

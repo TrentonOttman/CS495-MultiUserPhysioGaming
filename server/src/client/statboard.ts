@@ -24,7 +24,7 @@ const TEXT_STYLE = {
 };
 
 const BACKGROUND_COLOR = 0x111827;
-const INNER_COLOR = 0x263449;
+const ROW_COLOR = 0x263449;
 const BORDER_COLOR = 0xffffff;
 
 export function createStatBoard(
@@ -67,7 +67,7 @@ export function createStatBoard(
         headerY + headerHeight / 2,
         innerWidth,
         headerHeight,
-        INNER_COLOR
+        ROW_COLOR
     ));
 
     panel.add(scene.add.text(
@@ -100,7 +100,7 @@ export function createStatBoard(
             rowY,
             innerWidth,
             rowHeight,
-            player?.color ?? INNER_COLOR
+            player?.color ?? ROW_COLOR
         ));
 
         if (player) {

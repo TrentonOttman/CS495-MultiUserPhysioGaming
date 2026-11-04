@@ -41,6 +41,7 @@ export type PhysioParkLevelPhase = "playing" | "transitioning" | "completed";
 export const PhysioParkState = LobbyState.extend({
 
     players: t.map(Player),
+    deathCount: t.map("uint32"),
 
     /** One-based index of the level currently loaded in the room. */
     levelNumber: t.uint8().default(1),

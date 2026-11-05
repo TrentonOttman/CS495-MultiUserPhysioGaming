@@ -239,6 +239,10 @@ export class PhysioParkScene extends Phaser.Scene {
             board.update(this.getPlayerStats());
         });
 
+        callbacks.onAdd("players", () =>
+            board.update(this.getPlayerStats())
+        );
+
         const tabKey = this.input.keyboard?.addKey(
             Phaser.Input.Keyboard.KeyCodes.TAB
         );

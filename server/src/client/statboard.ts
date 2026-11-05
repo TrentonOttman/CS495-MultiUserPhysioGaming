@@ -32,9 +32,7 @@ export function createStatBoard(
     playerInfo: PlayerInfo[]
 ): StatBoardView {
     const panel = scene.add.container(0, 0).setDepth(1000);
-    const deathLabels: (Phaser.GameObjects.Text | undefined)[] = [];
 
-    // Panel fill and outline.
     const background = scene.add.graphics();
     background.fillStyle(BACKGROUND_COLOR, 0.96);
     background.fillRoundedRect(
@@ -58,7 +56,6 @@ export function createStatBoard(
     const left = -WIDTH / 2 + PADDING;
     const right = WIDTH / 2 - PADDING;
 
-    // Table header.
     const headerY = -HEIGHT / 2 + PADDING;
     const headerHeight = 38;
 
@@ -84,57 +81,54 @@ export function createStatBoard(
         { ...TEXT_STYLE, fontStyle: 'bold' }
     ).setOrigin(1, 0.5));
 
-    // Player rows.
     const ROW_COUNT = 8;
     const rowsTop = headerY + headerHeight + 6;
     const rowsBottom = HEIGHT / 2 - 18;
     const rowSlotHeight = (rowsBottom - rowsTop) / ROW_COUNT;
 
-    for (let index = 0; index < ROW_COUNT; index++) {
-        const player = playerInfo[index];
+    const rows = Array.from({ length: ROW_COUNT }, (_, index) => {
         const rowY = rowsTop + index * rowSlotHeight + rowSlotHeight / 2;
-        const rowHeight = Math.max(1, rowSlotHeight - 4);
 
-        panel.add(scene.add.rectangle(
+        const rowBackground = scene.add.rectangle(
             0,
             rowY,
             innerWidth,
-            rowHeight,
-            player?.color ?? ROW_COLOR
-        ));
+            Math.max(1, rowSlotHeight - 4),
+            ROW_COLOR
+        );
+        const nameLabel = scene.add.text(
+            left + 12,
+            rowY,
+            '',
+            TEXT_STYLE
+        ).setOrigin(0, 0.5);
+        const deathLabel = scene.add.text(
+            right - 12,
+            rowY,
+            '',
+            TEXT_STYLE
+        ).setOrigin(1, 0.5);
 
-        if (player) {
-            panel.add(scene.add.text(
-                left + 12,
-                rowY,
-                player.name,
-                TEXT_STYLE
-            ).setOrigin(0, 0.5));
+        panel.add([rowBackground, nameLabel, deathLabel]);
+        return { rowBackground, nameLabel, deathLabel };
+    });
 
-            const deathLabel = scene.add.text(
-                right - 12,
-                rowY,
-                String(player.deaths),
-                TEXT_STYLE
-            ).setOrigin(1, 0.5);
+    const update = (players: PlayerInfo[]) => {
+        rows.forEach(({ rowBackground, nameLabel, deathLabel }, index) => {
+            const player = players[index];
 
-            deathLabels[index] = deathLabel;
-            panel.add(deathLabel);
-        }
-    }
+            if (player) {
+                rowBackground.setFillStyle(player.color ?? ROW_COLOR);
+                nameLabel.setText(player.name);
+                deathLabel.setText(String(player.deaths));
+            }
+        });
+    };
+
+    update(playerInfo);
 
     return {
         container: panel,
-
-        update(players: PlayerInfo[]) {
-            for (let index = 0; index < deathLabels.length; index++) {
-                const player = players[index];
-                const deathLabel = deathLabels[index];
-
-                if (player && deathLabel) {
-                    deathLabel.setText(String(player.deaths));
-                }
-            }
-        }
+        update
     };
 }

@@ -23,9 +23,13 @@ const TEXT_STYLE = {
     color: '#ffffff'
 };
 
-const BACKGROUND_COLOR = 0x111827;
-const ROW_COLOR = 0x263449;
-const BORDER_COLOR = 0xffffff;
+const BACKGROUND_COLOR = 0xcecece;
+const ROW_COLOR = 0xaeaeae;
+const BORDER_COLOR = 0x161616;
+
+const BACKGROUND_ALPHA = 0.85;
+const ROW_ALPHA = 0.85;
+const EMPTY_ROW_ALPHA = 0.85;
 
 export function createStatBoard(
     scene: PhysioParkScene,
@@ -34,7 +38,7 @@ export function createStatBoard(
     const panel = scene.add.container(0, 0).setDepth(1000);
 
     const background = scene.add.graphics();
-    background.fillStyle(BACKGROUND_COLOR, 0.96);
+    background.fillStyle(BACKGROUND_COLOR, BACKGROUND_ALPHA);
     background.fillRoundedRect(
         -WIDTH / 2,
         -HEIGHT / 2,
@@ -64,7 +68,8 @@ export function createStatBoard(
         headerY + headerHeight / 2,
         innerWidth,
         headerHeight,
-        ROW_COLOR
+        ROW_COLOR,
+        BACKGROUND_ALPHA
     ));
 
     panel.add(scene.add.text(
@@ -94,7 +99,8 @@ export function createStatBoard(
             rowY,
             innerWidth,
             Math.max(1, rowSlotHeight - 4),
-            ROW_COLOR
+            ROW_COLOR,
+            EMPTY_ROW_ALPHA,
         );
         const nameLabel = scene.add.text(
             left + 12,
@@ -118,7 +124,8 @@ export function createStatBoard(
             const player = players[index];
 
             if (player) {
-                rowBackground.setFillStyle(player.color ?? ROW_COLOR);
+                const alpha = player.color ? ROW_ALPHA : EMPTY_ROW_ALPHA;
+                rowBackground.setFillStyle(player.color ?? ROW_COLOR, alpha);
                 nameLabel.setText(player.name);
                 deathLabel.setText(String(player.deaths));
             }

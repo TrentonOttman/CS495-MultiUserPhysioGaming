@@ -1,6 +1,6 @@
-import { PLAYER_HEIGHT, PLAYER_WIDTH } from "../physioParkConstants.js";
-import { allPlayersInsideGoalArea } from "./shared.js";
-import type { ResolvedPhysioParkLevel } from "./types.js";
+import { PLAYER_HEIGHT, PLAYER_WIDTH } from "../../server/src/shared/physioPark/physioParkConstants.js";
+import { allPlayersInsideGoalArea } from "../../server/src/shared/physioPark/levels/shared.js";
+import type { ResolvedPhysioParkLevel } from "../../server/src/shared/physioPark/levels/types.js";
 import { LDtkLevel } from "./ldtkLevel2.js";
 
 export const LEVEL_2: ResolvedPhysioParkLevel = {

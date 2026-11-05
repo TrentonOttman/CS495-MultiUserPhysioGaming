@@ -1,6 +1,6 @@
-import { allPlayersInsideGoalArea } from "./shared.js";
-import { PLAYER_HEIGHT_HALF } from "../physioParkConstants.js";
-import type { ResolvedPhysioParkLevel } from "./types.js";
+import { allPlayersInsideGoalArea } from "../../server/src/shared/physioPark/levels/shared.js";
+import { PLAYER_HEIGHT_HALF } from "../../server/src/shared/physioPark/physioParkConstants.js";
+import type { ResolvedPhysioParkLevel } from "../../server/src/shared/physioPark/levels/types.js";
 import { LDtkLevel } from "./ldtkLevel3.js";
 
 /** Moving platform and player switch level authored in docs/planning/ldtkLevel2/level2.ldtk. */

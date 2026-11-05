@@ -26,5 +26,5 @@
         "test",
         "loadtest",
         "vite.config.ts"
-    ]
+, "../archive/typescript-conversions/ldtkLevel3.ts", "../archive/typescript-conversions/ldtkLevel2.ts", "../archive/typescript-conversions/level2.ts", "../archive/typescript-conversions/level3.ts"    ]
 }

@@ -426,6 +426,9 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         body.rect.y = spawn.y;
         body.velocity = { x: 0, y: 0 };
         body.timeSinceGrounded = 0;
+
+        const deaths = this.state.deathCount;
+        deaths.set(sessionId, (deaths.get(sessionId) ?? 0) + 1);
     }
 
     // Immediately kill the room on restore to avoid crashing on stale physics state.

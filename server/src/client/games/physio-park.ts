@@ -13,6 +13,7 @@ import { PHYSIO_PARK_LEVELS } from "../../shared/physioPark/physioParkLevel.js";
 import type { Solid } from "../../shared/physioPark/physioParkMovement.js";
 import type { GoalFlagOffset } from "../../shared/physioPark/levels/types.js";
 import { setupRoom } from "./roomSetup.ts";
+import { PlayerInfo, createStatBoard } from "../statboard.ts";
 import { PlayerNameTags } from "./physioParkNameTags.ts";
 import { getSensitivity, getPeak, getWaveIntegral } from "../../sensor/sensorData.js";
 
@@ -61,7 +62,7 @@ const MAX_STEPS_PER_FRAME = 5;
 const GAME_BACKGROUND = "#f4f1ea";
 
 /** Renders server-owned game state; Phaser does not run gameplay physics. */
-class PhysioParkScene extends Phaser.Scene {
+export class PhysioParkScene extends Phaser.Scene {
     private readonly playerEntities = new Map<string, Phaser.GameObjects.Sprite>();
     private nameTags!: PlayerNameTags;
     private levelContainer: Phaser.GameObjects.Container;
@@ -90,6 +91,8 @@ class PhysioParkScene extends Phaser.Scene {
     private inputAccumulator = 0;
     /** Client-side prediction, or undefined when turned off with `?prediction=off`. */
     private prediction?: PhysioParkClientPrediction;
+
+    private statBoard: Phaser.GameObjects.Container;
 
     constructor(private readonly room: Room<PhysioParkRoom["state"]>) {
         super("physio-park");
@@ -137,6 +140,8 @@ class PhysioParkScene extends Phaser.Scene {
         const callbacks = Callbacks.get(this.room);
         callbacks.onAdd("players", (player: Player, sessionId: string) => this.addPlayer(player, sessionId));
         callbacks.onRemove("players", (_player: Player, sessionId: string) => this.removePlayer(sessionId));
+
+        this.createStatBoard(callbacks);
     }
 
     update(time: number, delta: number) {
@@ -220,6 +225,29 @@ class PhysioParkScene extends Phaser.Scene {
             right: [keyboard.addKey(keyCodes.D), keyboard.addKey(keyCodes.RIGHT)],
             jump: [keyboard.addKey(keyCodes.W), keyboard.addKey(keyCodes.UP), keyboard.addKey(keyCodes.SPACE)],
         };
+    }
+
+    private createStatBoard(callbacks: any) {
+        const board = createStatBoard(this, this.getPlayerStats());
+        this.statBoard = board.container
+            .setPosition(UI_RESOLUTION_X / 2, UI_RESOLUTION_Y / 2)
+            .setVisible(false);
+
+        this.ui.add(this.statBoard);
+
+        callbacks.onChange("deathCount", () => {
+            board.update(this.getPlayerStats());
+        });
+
+        callbacks.onAdd("players", () =>
+            board.update(this.getPlayerStats())
+        );
+
+        const tabKey = this.input.keyboard?.addKey(
+            Phaser.Input.Keyboard.KeyCodes.TAB
+        );
+        tabKey?.on('down', () => this.statBoard.setVisible(true));
+        tabKey?.on('up', () => this.statBoard.setVisible(false));
     }
 
     private addPlayer(player: Player, sessionId: string) {
@@ -551,6 +579,19 @@ class PhysioParkScene extends Phaser.Scene {
         this.uiCamera.ignore(object);
         return object;
     }
+
+    private getPlayerStats(): PlayerInfo[] {
+        const state = this.room.state;
+        const userId = this.room.sessionId;
+
+        return this.room.state.playerIds.map(
+            (id: string) => ({
+                name: state.lobbyPlayers.get(id).displayName + (id === userId ? " (You)" : ""),
+                deaths: state.deathCount.get(id) ?? 0,
+                color: PLAYER_COLORS[state.players.get(id).color % PLAYER_COLORS.length],
+            })
+        );
+    }
 }
 
 function sameBounds(first: Solid, second: Solid) {
@@ -597,3 +638,4 @@ export async function startPhysioPark(
 
     new Phaser.Game(config);
 }
+

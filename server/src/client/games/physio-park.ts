@@ -582,10 +582,11 @@ export class PhysioParkScene extends Phaser.Scene {
 
     private getPlayerStats(): PlayerInfo[] {
         const state = this.room.state;
+        const userId = this.room.sessionId;
 
         return this.room.state.playerIds.map(
             (id: string) => ({
-                name: state.lobbyPlayers.get(id).displayName,
+                name: state.lobbyPlayers.get(id).displayName + (id === userId ? " (You)" : ""),
                 deaths: state.deathCount.get(id) ?? 0,
                 color: PLAYER_COLORS[state.players.get(id).color % PLAYER_COLORS.length],
             })

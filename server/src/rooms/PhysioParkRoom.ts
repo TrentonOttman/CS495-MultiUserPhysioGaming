@@ -12,6 +12,7 @@ import {
     TICK_RATE,
 } from "../shared/physioPark/physioParkConstants.js";
 import { applyPlayerInput, NO_INPUT } from "../shared/physioPark/physioParkInput.js";
+import { applyConveyorPush } from "../shared/physioPark/physioParkConveyors.js";
 import { PHYSIO_PARK_LEVELS, type ResolvedPhysioParkLevel } from "../shared/physioPark/physioParkLevel.js";
 import { getSpriteCollisionRects, PHYSIO_PARK_ANIMATIONS } from "../shared/physioPark/physioParkAnimations.js";
 import { validateDisplayName } from "../shared/displayName.ts";
@@ -175,11 +176,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
 
             const input = channel?.next() ?? NO_INPUT;
             applyPlayerInput(body, input);
-            for (const conveyor of this.currentLevel.conveyors ?? []) {
-                if (!this.isStandingOn(body, conveyor.surface)) continue;
-                body.velocity = { x: body.velocity.x + conveyor.pushSpeed, y: body.velocity.y };
-                break;
-            }
+            applyConveyorPush(body, this.currentLevel.conveyors);
             player.vx = body.velocity.x;
         }
 

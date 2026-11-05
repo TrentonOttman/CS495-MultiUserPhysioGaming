@@ -3,6 +3,7 @@ import { Callbacks, type ColyseusSDK, type InputHandle, type Room } from "@colys
 import type { default as server } from "../../app.config.js";
 import type { PhysioParkRoom } from "../../rooms/PhysioParkRoom.js";
 import type { MoveInput, Player } from "../../rooms/schema/PhysioParkState.js";
+import { PhysioParkClientPrediction } from "./physioParkClientPrediction.ts";
 import {
     PHYSIO_PARK_ANIMATIONS,
     type SpriteSheetAnimationDefinition,
@@ -86,6 +87,8 @@ class PhysioParkScene extends Phaser.Scene {
     private input_: InputHandle<MoveInput>;
     private keys: PlayerKeys;
     private inputAccumulator = 0;
+    /** Client-side prediction, or undefined when turned off with `?prediction=off`. */
+    private prediction?: PhysioParkClientPrediction;
 
     constructor(private readonly room: Room<PhysioParkRoom["state"]>) {
         super("physio-park");
@@ -125,15 +128,19 @@ class PhysioParkScene extends Phaser.Scene {
         this.createControls();
         this.input_ = this.room.input<MoveInput>({ mode: "reliable" });
         this.nameTags = new PlayerNameTags(this, this.room.sessionId, RENDER_SCALE, (tag) => this.addWorld(tag));
+        if (PhysioParkClientPrediction.isEnabled()) {
+            this.prediction = new PhysioParkClientPrediction(this.room, this.input_);
+            this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.prediction?.dispose());
+        }
 
         const callbacks = Callbacks.get(this.room);
         callbacks.onAdd("players", (player: Player, sessionId: string) => this.addPlayer(player, sessionId));
         callbacks.onRemove("players", (_player: Player, sessionId: string) => this.removePlayer(sessionId));
     }
 
-    update(_time: number, delta: number) {
+    update(time: number, delta: number) {
         this.updateLevelIfNeeded();
-        this.updateInput(delta);
+        this.updateInput(time, delta);
         this.updateCrate();
         this.updateButtonFrame();
         this.updateHud();
@@ -220,6 +227,7 @@ class PhysioParkScene extends Phaser.Scene {
         sprite.play("idle");
         this.playerEntities.set(sessionId, sprite);
         this.nameTags.add(sessionId);
+        this.prediction?.addPlayer(player, sessionId);
 
         if (sessionId === this.room.sessionId) {
             this.worldCamera.startFollow(sprite, true, 0.12, 0.12);
@@ -227,6 +235,7 @@ class PhysioParkScene extends Phaser.Scene {
     }
 
     private removePlayer(sessionId: string) {
+        this.prediction?.removePlayer(sessionId);
         this.playerEntities.get(sessionId)?.destroy();
         this.playerEntities.delete(sessionId);
         this.nameTags.remove(sessionId);
@@ -239,10 +248,18 @@ class PhysioParkScene extends Phaser.Scene {
         this.drawLevel(levelNumber);
     }
 
-    private updateInput(delta: number) {
+    private updateInput(time: number, delta: number) {
         const moveX = this.getHorizontalMove();
         JumpSensorThreshold = getSensitivity();
         const jump = this.isAnyKeyDown(this.keys.jump) || getPeak() > JumpSensorThreshold;
+
+        // With prediction, it paces the inputs (one per server tick) and applies
+        // each one locally as it is sent.
+        if (this.prediction) {
+            const steps = this.prediction.tick(time);
+            for (let i = 0; i < steps; i++) this.sendInput(moveX, jump);
+            return;
+        }
 
         this.inputAccumulator = Math.min(
             this.inputAccumulator + delta,
@@ -395,21 +412,33 @@ class PhysioParkScene extends Phaser.Scene {
             const sprite = this.playerEntities.get(sessionId);
             if (!sprite) continue;
 
-            const teleported = Math.abs(player.x - sprite.x) > PLAYER_SNAP_DISTANCE
-                || Math.abs(player.y - sprite.y) > PLAYER_SNAP_DISTANCE;
-            if (teleported) {
-                sprite.setPosition(player.x, player.y);
+            if (this.prediction) {
+                const position = this.prediction.drawPosition(player, sessionId);
+                sprite.setPosition(position.x, position.y);
             } else {
-                sprite.setPosition(
-                    sprite.x + (player.x - sprite.x) * smoothing,
-                    sprite.y + (player.y - sprite.y) * smoothing,
-                );
+                this.easeTowardServer(sprite, player, smoothing);
             }
 
-            const moving = Math.abs(player.vx) >= 0.0001;
-            if (moving) sprite.setFlipX(player.vx < 0);
-            const animation = player.timeSinceGrounded > 0 ? "jump" : moving ? "walk" : "idle";
+            // Your own animation follows your predicted movement, so it reacts instantly too.
+            const motion = this.prediction?.motion(player, sessionId) ?? player;
+            const moving = Math.abs(motion.vx) >= 0.0001;
+            if (moving) sprite.setFlipX(motion.vx < 0);
+            const animation = motion.timeSinceGrounded > 0 ? "jump" : moving ? "walk" : "idle";
             sprite.play(animation, true);
+        }
+    }
+
+    /** Without prediction: slide each sprite toward its latest server position. */
+    private easeTowardServer(sprite: Phaser.GameObjects.Sprite, player: Player, smoothing: number) {
+        const teleported = Math.abs(player.x - sprite.x) > PLAYER_SNAP_DISTANCE
+            || Math.abs(player.y - sprite.y) > PLAYER_SNAP_DISTANCE;
+        if (teleported) {
+            sprite.setPosition(player.x, player.y);
+        } else {
+            sprite.setPosition(
+                sprite.x + (player.x - sprite.x) * smoothing,
+                sprite.y + (player.y - sprite.y) * smoothing,
+            );
         }
     }
 

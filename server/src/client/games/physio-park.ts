@@ -12,8 +12,9 @@ import { PHYSIO_PARK_LEVELS } from "../../shared/physioPark/physioParkLevel.js";
 import type { Solid } from "../../shared/physioPark/physioParkMovement.js";
 import type { GoalFlagOffset } from "../../shared/physioPark/levels/types.js";
 import { setupRoom } from "./roomSetup.ts";
-import { getSensitivity, getPeak } from "../../sensor/sensorData.js";
 import { PlayerNameTags } from "./physioParkNameTags.ts";
+import { getSensitivity, getPeak, getWaveIntegral } from "../../sensor/sensorData.js";
+
 
 export interface PhysioParkElements {
     game: HTMLElement;
@@ -242,7 +243,7 @@ class PhysioParkScene extends Phaser.Scene {
     private updateInput(delta: number) {
         const moveX = this.getHorizontalMove();
         JumpSensorThreshold = getSensitivity();
-        const jump = this.isAnyKeyDown(this.keys.jump) || getPeak() > JumpSensorThreshold;
+        const jump = this.isAnyKeyDown(this.keys.jump) || getWaveIntegral() > JumpSensorThreshold;
 
         this.inputAccumulator = Math.min(
             this.inputAccumulator + delta,

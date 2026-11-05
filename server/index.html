@@ -633,6 +633,19 @@
             overflow: hidden;
         }
 
+        /* Pong's sprites are absolutely positioned, so they do not give the
+           arena an intrinsic height. Keep its 800x600 playfield visible. */
+        #arena.pong-arena {
+            width: min(100%, 800px);
+            aspect-ratio: 4 / 3;
+            height: auto;
+            margin-inline: auto;
+            box-sizing: border-box;
+        }
+
+        #arena.pong-arena > .player,
+        #arena.pong-arena > .ball { transform-origin: top left; }
+
         #arena > canvas {
             display: block;
         }

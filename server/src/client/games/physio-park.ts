@@ -538,6 +538,7 @@ export async function startPhysioPark(
     elements: PhysioParkElements,
 ) {
     const { game, arena, score, status, title, help } = elements;
+    arena.classList.remove("pong-arena");
     const room = typeof roomOrId === "string"
         ? await client.joinById(roomOrId, { displayName: elements.displayName }) as unknown as Room<PhysioParkRoom["state"]>
         : roomOrId as unknown as Room<PhysioParkRoom["state"]>;

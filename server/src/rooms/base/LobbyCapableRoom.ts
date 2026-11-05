@@ -1,4 +1,4 @@
-import { Room, ServerError, ErrorCode } from "colyseus";
+import { Room, ServerError, ErrorCode, type Client } from "colyseus";
 import type { LobbyState } from "../schema/LobbyState.js";
 import {
     toLobbyMetadata,
@@ -18,7 +18,7 @@ import {
  * `onCreate` owns validation and the matchmaking projection; a game puts its own
  * setup in `onLobbyCreate`, which runs after the configuration is in place.
  */
-export abstract class LobbyCapableRoom<S extends LobbyState, I = never> extends Room<{
+export abstract class LobbyCapableRoom<S extends LobbyState & { players: Map<string, any> }, I = never> extends Room<{
     state: S;
     metadata: LobbyMetadata;
     input: I;

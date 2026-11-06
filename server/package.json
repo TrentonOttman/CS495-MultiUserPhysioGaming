@@ -5,7 +5,7 @@
     "description": "A Colyseus multiplayer server",
     "type": "module",
     "engines": {
-        "node": ">= 22.0.0"
+        "node": ">=22.12.0"
     },
     "scripts": {
         "start": "node dist/server/server.mjs",
@@ -26,7 +26,7 @@
         "@types/express": "^5.0.6",
         "@types/mocha": "^10.0.1",
         "@types/node": "^22.13.13",
-        "mocha": "^11.7.5",
+        "mocha": "^12.0.3",
         "rimraf": "^5.0.0",
         "tsx": "^4.21.0",
         "typescript": "^5.0.4",

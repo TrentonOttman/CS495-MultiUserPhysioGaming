@@ -18,9 +18,7 @@ export function getSensitivity()
 
 export function setData(d)
 {
-    // Treat every incoming sensor sample as a full-strength jump signal.
-    // The client uses getPeak() > getSensitivity() to turn that signal into
-    // the game's jump button.
+    // Treat each incoming sensor sample as a full-strength jump signal.
     sensorVal = d === 0 ? 0 : 1;
     peakVal = sensorVal;
 }

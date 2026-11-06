@@ -24,7 +24,7 @@ type LobbyPlayerCollection = {
  * `onCreate` owns validation and the matchmaking projection; a game puts its own
  * setup in `onLobbyCreate`, which runs after the configuration is in place.
  */
-export abstract class LobbyCapableRoom<S extends LobbyState, I = never> extends Room<{
+export abstract class LobbyCapableRoom<S extends LobbyState & { players: Map<string, any> }, I = never> extends Room<{
     state: S;
     metadata: LobbyMetadata;
     input: I;

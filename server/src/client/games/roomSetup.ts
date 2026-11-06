@@ -1,4 +1,4 @@
-import type { Room } from "@colyseus/sdk";
+﻿import type { Room } from "@colyseus/sdk";
 import type { GameId } from "../../shared/games.js";
 
 const REJOIN_KEY = "colyseus-rejoin";
@@ -39,13 +39,11 @@ export function setupRoom<T>(room: Room<T>, gameId: GameId): Room<T> {
         window.location.href = "../../index.html";
     });
 
-    room.onMessage("*", (messageType, data) => {
-        if (messageType === "disconnect" || messageType === "leave") {
-            displayStatus(data);
-        } else if (messageType === "gameEnded") {
-            sessionStorage.removeItem(REJOIN_KEY);
-            displayStatus(data ?? "The game has closed.");
-        }
+    room.onMessage("disconnect", (data) => displayStatus(data));
+    room.onMessage("leave", (data) => displayStatus(data));
+    room.onMessage("gameEnded", (data) => {
+        sessionStorage.removeItem(REJOIN_KEY);
+        displayStatus(data ?? "The game has closed.");
     });
 
     return room;

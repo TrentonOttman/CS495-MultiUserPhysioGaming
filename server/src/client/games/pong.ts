@@ -1,9 +1,6 @@
 import { Callbacks, type ColyseusSDK, type Room } from "@colyseus/sdk";
-import { Predict } from "@colyseus/sdk/predict";
 import type { default as server } from "../../app.config.js";
-import type { MoveInput } from "../../rooms/schema/PongState.js";
 import type { PongRoom } from "../../rooms/PongRoom.js";
-import { stepEntity } from "../../shared/movement.js";
 import { setupRoom } from "./roomSetup.ts";
 import {getData} from "../../sensor/sensorData.js";
 
@@ -33,8 +30,7 @@ export async function startPong(client: ColyseusSDK<typeof server>, roomOrId: st
     }
 
     room = setupRoom(room, "pong");
-    
-    const predict = Predict.get(room);
+    arena.classList.add("pong-arena");
 
     const held = new Set<string>();
 
@@ -58,24 +54,7 @@ export async function startPong(client: ColyseusSDK<typeof server>, roomOrId: st
         return back ? -1 : 1;
     }
 
-    // Other players' inputs aren't ours to predict: interpolate them toward the
-    // latest snapshot instead. `smoothMs` springs the interpolated output — ~65 ms
-    // of extra display lag buys velocity that stays continuous even when the
-    // snapshot stream is rough. Use 0 where draw == hit precision matters most.
-    predict.attachAll("players", { mode: "lerp", fields: ["x", "y"], smoothMs: 65 });
-
-    const input = room.input<MoveInput>({ mode: "reliable" });
-
-    // The first patch is what creates our own Player.
-    await new Promise<void>((resolve) => room.onStateChange.once(() => resolve()));
-    const self = room.state.players.get(room.sessionId);
-
-    predict.reconciler(self, {
-        input,
-        fields: ["x", "y", "vx", "vy"],
-        // The same function the server runs — determinism is the whole contract.
-        step: (ctx, predicted, command) => stepEntity(predicted, command, ctx.dt),
-    });
+    const input = room.input({ mode: "reliable" });
 
     game.hidden = false;
     const displayName = room.state?.lobbyPlayers?.get(room.sessionId)?.displayName || room.sessionId;
@@ -113,28 +92,22 @@ export async function startPong(client: ColyseusSDK<typeof server>, roomOrId: st
         removeEventListener("keyup", onKeyUp);
     });
 
-    function frame(now: number) {
-        // Drives prediction, interpolation and the reconciler, and returns how many
-        // fixed steps came due — so input rate follows the simulation rate, not the
-        // monitor's refresh rate.
-        const steps = predict.tick(now);
-
-        for (let i = 0; i < steps; i++) {
-            // input.data.moveX = axis(["a", "arrowleft"], ["d", "arrowright"]);
-            input.data.moveY = axis(["w", "arrowup"], ["s", "arrowdown"]);
-            input.send();
-        }
+    function frame(_now: number) {
+        input.data.moveY = axis(["w", "arrowup"], ["s", "arrowdown"]);
+        input.send();
 
         for (const [sessionId, player] of room.state.players) {
             const node = nodes.get(sessionId);
             if (!node) { continue; }
             // Predicted for us, interpolated for everyone else — one read either way.
             // node.style.transform = `translate(${predict.value(player, "x")}px, ${predict.value(player, "y")}px)`;
-            node.style.transform = `translate(${player.position.x}px, ${player.position.y}px) translate(-50%, -50%)`;
+            const scale = arena.clientWidth / 800;
+            node.style.transform = `scale(${scale}) translate(${player.position.x}px, ${player.position.y}px) translate(-50%, -50%)`;
         }
 
         const ballState = room.state.ball;
-        ballDiv.style.transform = `translate(${ballState.position.x}px, ${ballState.position.y}px) translate(-50%, -50%)`;
+        const scale = arena.clientWidth / 800;
+        ballDiv.style.transform = `scale(${scale}) translate(${ballState.position.x}px, ${ballState.position.y}px) translate(-50%, -50%)`;
 
         score.textContent = `${room.state.leftScore} | ${room.state.rightScore}`;
 

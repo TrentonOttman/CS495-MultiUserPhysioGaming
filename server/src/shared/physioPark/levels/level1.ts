@@ -1,5 +1,5 @@
 import { allPlayersInsideGoalArea } from "./shared.js";
-import { PLAYER_HEIGHT_HALF } from "../physioParkConstants.js";
+import { PLAYER_HEIGHT } from "../physioParkConstants.js";
 import type { ResolvedPhysioParkLevel } from "./types.js";
 import { LDtkLevel } from "./ldtkLevel1.js";
 
@@ -17,7 +17,7 @@ export const LEVEL_1: ResolvedPhysioParkLevel = {
     goalFlagPosition: LDtkLevel.goalFlagPosition,
     spawnPoint(index) {
         const spawn = LDtkLevel.spawns[index % LDtkLevel.spawns.length];
-        return { x: spawn.x, y: spawn.y - PLAYER_HEIGHT_HALF };
+        return { x: spawn.x, y: spawn.y - PLAYER_HEIGHT };
     },
     isComplete(players) {
         return allPlayersInsideGoalArea(players, LDtkLevel.goalArea);

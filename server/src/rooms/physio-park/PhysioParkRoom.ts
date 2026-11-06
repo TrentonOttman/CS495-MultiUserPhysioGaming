@@ -99,6 +99,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             timeSinceGrounded: 0,
             color: index % 8,
         }));
+        this.state.deathCount.set(client.sessionId, 0);
 
         const body = new Body(
             new Rect(spawn.x, spawn.y, PLAYER_WIDTH, PLAYER_HEIGHT),
@@ -144,6 +145,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     override onLeave(client: Client, code: number) {
         this.spawnIndex.delete(client.sessionId);
         this.inputLockedUntilFresh.delete(client.sessionId);
+        this.state.deathCount.delete(client.sessionId);
         const body = this.playerMap.get(client.sessionId);
         if (body) {
             this.world.remove(body);
@@ -419,6 +421,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         body.rect.y = spawn.y;
         body.velocity = { x: 0, y: 0 };
         body.timeSinceGrounded = 0;
+        this.state.deathCount.set(sessionId, (this.state.deathCount.get(sessionId) ?? 0) + 1);
     }
 
     // Immediately kill the room on restore to avoid crashing on stale physics state.

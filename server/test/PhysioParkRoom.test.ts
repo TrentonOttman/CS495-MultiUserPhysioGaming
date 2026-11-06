@@ -187,7 +187,7 @@ describe("physio_park_room", () => {
         input.send();
         // Leave enough time for the player to cross the goal boundary during
         // the transition while the other player stays clear of the path.
-        await waitTicks(room, 75);
+        await waitTicks(room, 45);
         const movedPlayer = room.state.players.get(client1.sessionId)!;
         assert.ok(movedPlayer.x < before, "players can keep moving during the transition");
         assert.ok(movedPlayer.x + PLAYER_WIDTH_HALF < levelOne.goalArea.x, "players can leave the goal after completing it");
@@ -238,12 +238,12 @@ describe("physio_park_room", () => {
         setPlayerCenter(room, client2.sessionId, finalPoint.x, finalPoint.y + 8);
         await waitTicks(room, 2);
         assert.strictEqual(room.state.levelNumber, 2, "final completion does not increment the level");
-        assert.strictEqual(room.state.levelPhase, "completed");
+        assert.strictEqual(room.state.levelPhase, "transitioning");
 
         await new Promise((resolve) => setTimeout(resolve, LEVEL_TRANSITION_DELAY_MS + 150));
-        assert.strictEqual(room.state.levelNumber, 2, "there is no third level transition");
-        assert.strictEqual(room.state.levelPhase, "completed");
-        await waitForState(() => client1.state.levelPhase === "completed" && client2.state.levelPhase === "completed");
+        assert.strictEqual(room.state.levelNumber, 3);
+        assert.strictEqual(room.state.levelPhase, "playing");
+        await waitForState(() => client1.state.levelNumber === 3 && client2.state.levelNumber === 3);
     });
 
     it("excludes dropped players from the goal quorum and restores them on reconnect", async () => {

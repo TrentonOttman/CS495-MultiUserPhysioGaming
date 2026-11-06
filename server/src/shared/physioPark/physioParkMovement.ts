@@ -423,8 +423,22 @@ export class PhysicsWorld {
                     const aMoves = !a.isStatic && !a.isKinematic;
                     const bMoves = !b.isStatic && !b.isKinematic;
 
-                    const aShare = aMoves ? (bMoves ? 0.5 : 1) : 0;
-                    const bShare = bMoves ? (aMoves ? 0.5 : 1) : 0;
+                    let aShare = aMoves ? (bMoves ? 0.5 : 1) : 0;
+                    let bShare = bMoves ? (aMoves ? 0.5 : 1) : 0;
+
+                    // On vertical contact, move the upper body out of the
+                    // overlap. Splitting a landing correction between two
+                    // players pushes the supporting player into the floor and
+                    // makes stacked players slowly drift apart.
+                    if (offset.y !== 0 && aMoves && bMoves) {
+                        if (offset.y < 0) {
+                            aShare = 1;
+                            bShare = 0;
+                        } else {
+                            aShare = 0;
+                            bShare = 1;
+                        }
+                    }
 
                     const aPosition = Vec2.add(
                         { x: a.rect.x, y: a.rect.y },

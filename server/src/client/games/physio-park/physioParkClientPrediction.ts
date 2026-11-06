@@ -1,7 +1,7 @@
-import { Predict, type InputHandle, type Room } from "@colyseus/sdk";
-import type { PhysioParkRoom } from "../../rooms/PhysioParkRoom.js";
-import type { MoveInput, Player } from "../../rooms/schema/PhysioParkState.js";
-import { PhysioParkPredictionWorld, snapshotOf } from "../../shared/physioPark/physioParkPrediction.js";
+﻿import { Predict, type InputHandle, type Room } from "@colyseus/sdk";
+import type { PhysioParkRoom } from "../../../rooms/PhysioParkRoom.js";
+import type { MoveInput, Player } from "../../../rooms/schema/PhysioParkState.js";
+import { PhysioParkPredictionWorld, snapshotOf } from "../../../shared/physioPark/physioParkPrediction.js";
 
 /**
  * A correction bigger than this (in pixels) is a teleport (lava respawn, new
@@ -17,17 +17,13 @@ const TELEPORT_DISTANCE = 16;
  * between these distances their sprite blends over to where the prediction
  * thinks they are right now.
  */
-const CONTACT_NEAR = 18;
-const CONTACT_FAR = 40;
-
 /**
  * Client-side prediction for Physio Park.
  *
  * - Your own player moves the moment you press a key: each input is applied
  *   locally with the same physics the server runs, then the server's answer is
  *   checked against it. Any difference is smoothed out (or snapped, for a teleport).
- * - Everyone else is interpolated between server updates, and pulled into the
- *   present while they are touching you, so stacking and pushing line up.
+ * - Everyone else is interpolated between server updates.
  *
  * Turn it off with `?prediction=off` in the page URL to compare with plain
  * server-driven movement.
@@ -39,7 +35,6 @@ export class PhysioParkClientPrediction {
 
     private readonly predict: Predict<any>;
     private readonly world: PhysioParkPredictionWorld;
-    private self: Player | undefined;
     private controller: { world: { self: { x: number; y: number; vx: number; timeSinceGrounded: number } } } | undefined;
     private readonly detachers = new Map<string, () => void>();
 
@@ -62,7 +57,6 @@ export class PhysioParkClientPrediction {
             return;
         }
 
-        this.self = player;
         this.world.adopt(snapshotOf(this.room.state));
         this.controller = this.predict.sim({
             input: this.input,
@@ -91,26 +85,9 @@ export class PhysioParkClientPrediction {
 
     /** Where to draw `player` (top-left), this frame. */
     drawPosition(player: Player, sessionId: string): { x: number; y: number } {
-        const x = this.predict.value(player, "x");
-        const y = this.predict.value(player, "y");
-        if (sessionId === this.room.sessionId || !this.self) return { x, y };
-
-        const present = this.world.remotePosition(sessionId);
-        if (!present || !player.connected || !this.controller) return { x, y };
-
-        // Where they are relative to you right now (both predicted), placed next to
-        // where you are drawn. Anchoring on your drawn position keeps the two of you
-        // moving together while touching, even while your own sprite is easing out
-        // a correction.
-        const selfNow = this.controller.world.self;
-        const me = { x: this.predict.value(this.self, "x"), y: this.predict.value(this.self, "y") };
-        const anchored = { x: me.x + (present.x - selfNow.x), y: me.y + (present.y - selfNow.y) };
-
-        const distance = Math.hypot(present.x - selfNow.x, present.y - selfNow.y);
-        const weight = clamp01((CONTACT_FAR - distance) / (CONTACT_FAR - CONTACT_NEAR));
         return {
-            x: x + (anchored.x - x) * weight,
-            y: y + (anchored.y - y) * weight,
+            x: this.predict.value(player, "x"),
+            y: this.predict.value(player, "y"),
         };
     }
 
@@ -127,6 +104,3 @@ export class PhysioParkClientPrediction {
     }
 }
 
-function clamp01(value: number): number {
-    return value < 0 ? 0 : value > 1 ? 1 : value;
-}

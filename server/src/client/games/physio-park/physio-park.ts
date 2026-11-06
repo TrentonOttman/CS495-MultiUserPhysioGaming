@@ -14,6 +14,9 @@ import { getSensitivity, getPeak } from "../../../sensor/sensorData.js";
 import { PhysioParkHud } from "./physioParkHud.js";
 import { PhysioParkRenderer } from "./physioParkRenderer.js";
 import { PLAYER_COLORS } from "./physioParkPalette.js";
+import { PhysioParkClientPrediction } from "./physioParkClientPrediction.js";
+import { PlayerNameTags } from "./physioParkNameTags.js";
+import { createStatBoard } from "../../statboard.js";
 
 export interface PhysioParkElements {
     game: HTMLElement;
@@ -37,10 +40,6 @@ const RENDER_SCALE = 4;
 const FOLLOW_CAMERA_ZOOM = 1.0;
 const UI_RESOLUTION_X = RESOLUTION_X * RENDER_SCALE;
 const UI_RESOLUTION_Y = RESOLUTION_Y * RENDER_SCALE;
-const PLAYER_SNAP_DISTANCE = 16;
-const SMOOTHING_MS = 40;
-
-/** Milliseconds per simulation tick. The client sends exactly one input per tick. */
 const STEP_MS = 1000 / TICK_RATE;
 const MAX_STEPS_PER_FRAME = 5;
 const GAME_BACKGROUND = "#f4f1ea";
@@ -55,6 +54,9 @@ class PhysioParkScene extends Phaser.Scene {
     private uiCamera!: Phaser.Cameras.Scene2D.Camera;
     private ui!: Phaser.GameObjects.Container;
     private hud!: PhysioParkHud;
+    private prediction?: PhysioParkClientPrediction;
+    private nameTags!: PlayerNameTags;
+    private statBoard!: ReturnType<typeof createStatBoard>;
 
     private input_: InputHandle<MoveInput>;
     private keys: PlayerKeys;
@@ -94,6 +96,47 @@ class PhysioParkScene extends Phaser.Scene {
     create() {
         this.createAnimations();
 
+        const canvas = this.game.canvas;
+        canvas.tabIndex = 0;
+        canvas.style.outline = "none";
+        let gameHasFocus = true;
+        canvas.focus({ preventScroll: true });
+        const movementKeys = new Set([
+            "w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", " ", "space",
+        ]);
+        const onDocumentPointerDown = (event: PointerEvent) => {
+            gameHasFocus = event.composedPath().includes(canvas);
+            if (gameHasFocus) canvas.focus({ preventScroll: true });
+        };
+        const onWindowKeyDown = (event: KeyboardEvent) => {
+            const target = event.target;
+            const isTextEntry = target instanceof HTMLElement
+                && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+            if (isTextEntry) return;
+
+            const key = event.key.toLowerCase();
+            if (movementKeys.has(key)) {
+                if (!gameHasFocus) {
+                    gameHasFocus = true;
+                    canvas.focus({ preventScroll: true });
+                }
+            } else if (gameHasFocus && event.key === "Tab") {
+                event.preventDefault();
+                this.statBoard.container.setVisible(true);
+            }
+        };
+        const onWindowKeyUp = (event: KeyboardEvent) => {
+            if (gameHasFocus && event.key === "Tab") this.statBoard.container.setVisible(false);
+        };
+        const onWindowBlur = () => {
+            gameHasFocus = false;
+            this.statBoard.container.setVisible(false);
+        };
+        document.addEventListener("pointerdown", onDocumentPointerDown, true);
+        window.addEventListener("keydown", onWindowKeyDown, true);
+        window.addEventListener("keyup", onWindowKeyUp, true);
+        window.addEventListener("blur", onWindowBlur);
+
         this.worldCamera = this.cameras.main
             .setZoom(RENDER_SCALE * FOLLOW_CAMERA_ZOOM)
             .setRoundPixels(true);
@@ -109,18 +152,44 @@ class PhysioParkScene extends Phaser.Scene {
         this.renderedLevelNumber = this.room.state.levelNumber;
         this.createControls();
         this.input_ = this.room.input<MoveInput>({ mode: "reliable" });
-
+        if (PhysioParkClientPrediction.isEnabled()) {
+            this.prediction = new PhysioParkClientPrediction(this.room, this.input_);
+        }
+        this.nameTags = new PlayerNameTags(this, this.room.sessionId, RENDER_SCALE, (tag) => this.addWorld(tag));
+        this.statBoard = createStatBoard(this, []);
+        this.ui.add(this.statBoard.container);
+        this.statBoard.container
+            .setPosition(UI_RESOLUTION_X / 2, UI_RESOLUTION_Y / 2)
+            .setVisible(false);
         const callbacks = Callbacks.get(this.room);
-        callbacks.onAdd("players", (player: Player, sessionId: string) => this.addPlayer(player, sessionId));
-        callbacks.onRemove("players", (_player: Player, sessionId: string) => this.removePlayer(sessionId));
+        callbacks.onAdd("players", (player: Player, sessionId: string) => {
+            this.addPlayer(player, sessionId);
+            this.prediction?.addPlayer(player, sessionId);
+            this.nameTags.add(sessionId);
+        });
+        callbacks.onRemove("players", (_player: Player, sessionId: string) => {
+            this.removePlayer(sessionId);
+            this.prediction?.removePlayer(sessionId);
+            this.nameTags.remove(sessionId);
+        });
+        this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+            this.prediction?.dispose();
+            this.nameTags.destroy();
+            document.removeEventListener("pointerdown", onDocumentPointerDown, true);
+            window.removeEventListener("keydown", onWindowKeyDown, true);
+            window.removeEventListener("keyup", onWindowKeyUp, true);
+            window.removeEventListener("blur", onWindowBlur);
+        });
     }
 
-    update(_time: number, delta: number) {
+    update(time: number, delta: number) {
         this.updateLevelIfNeeded();
-        this.updateInput(delta);
+        this.updateInput(time, delta);
         this.levelRenderer.update();
         this.hud.update(this.room.state.levelNumber, this.room.state.levelPhase);
-        this.updatePlayerSprites(delta);
+        this.updatePlayerSprites();
+        this.nameTags.update(this.room.state.players, this.playerEntities, this.room.state.lobbyPlayers);
+        this.updateStatBoard();
     }
 
     private createAnimations() {
@@ -167,23 +236,27 @@ class PhysioParkScene extends Phaser.Scene {
     private updateLevelIfNeeded() {
         const levelNumber = this.room.state.levelNumber;
         if (this.renderedLevelNumber === levelNumber) return;
-        this.inputAccumulator = 0;
         this.levelRenderer.drawLevel(levelNumber);
         this.renderedLevelNumber = levelNumber;
     }
 
-    private updateInput(delta: number) {
+    private updateInput(time: number, delta: number) {
         const moveX = this.getHorizontalMove();
         const jumpThreshold = getSensitivity();
         const jump = this.isAnyKeyDown(this.keys.jump) || getPeak() > jumpThreshold;
-
-        this.inputAccumulator = Math.min(
-            this.inputAccumulator + delta,
-            STEP_MS * MAX_STEPS_PER_FRAME,
-        );
-        while (this.inputAccumulator >= STEP_MS) {
+        let steps: number;
+        if (this.prediction) {
+            steps = this.prediction.tick(time);
+        } else {
+            this.inputAccumulator = Math.min(
+                this.inputAccumulator + delta,
+                STEP_MS * MAX_STEPS_PER_FRAME,
+            );
+            steps = Math.floor(this.inputAccumulator / STEP_MS);
+            this.inputAccumulator -= steps * STEP_MS;
+        }
+        for (let step = 0; step < steps; step++) {
             this.sendInput(moveX, jump);
-            this.inputAccumulator -= STEP_MS;
         }
     }
 
@@ -203,32 +276,32 @@ class PhysioParkScene extends Phaser.Scene {
         this.input_.send();
     }
 
-    private updatePlayerSprites(delta: number) {
-        const smoothing = 1 - Math.exp(-delta / SMOOTHING_MS);
+    private updatePlayerSprites() {
         for (const [sessionId, player] of this.room.state.players) {
             const sprite = this.playerEntities.get(sessionId);
             if (!sprite) continue;
 
-            const teleported = Math.abs(player.x - sprite.x) > PLAYER_SNAP_DISTANCE
-                || Math.abs(player.y - sprite.y) > PLAYER_SNAP_DISTANCE;
-            if (teleported) {
-                sprite.setPosition(player.x, player.y);
-            } else {
-                sprite.setPosition(
-                    sprite.x + (player.x - sprite.x) * smoothing,
-                    sprite.y + (player.y - sprite.y) * smoothing,
-                );
-            }
+            const position = this.prediction?.drawPosition(player, sessionId) ?? { x: player.x, y: player.y };
+            sprite.setPosition(position.x, position.y);
 
-            const moving = Math.abs(player.vx) >= 0.0001;
-            if (moving) sprite.setFlipX(player.vx < 0);
-            const animation = player.timeSinceGrounded > 0
+            const motion = this.prediction?.motion(player, sessionId) ?? player;
+            const moving = Math.abs(motion.vx) >= 0.0001;
+            if (moving) sprite.setFlipX(motion.vx < 0);
+            const animation = motion.timeSinceGrounded > 0
                 ? PHYSIO_PARK_ANIMATIONS.playerJump.animationKey!
                 : moving
                     ? PHYSIO_PARK_ANIMATIONS.playerWalk.animationKey!
                     : PHYSIO_PARK_ANIMATIONS.playerIdle.animationKey!;
             sprite.play(animation, true);
         }
+    }
+
+    private updateStatBoard() {
+        this.statBoard.update([...this.room.state.players].map(([sessionId, player]) => ({
+            name: this.room.state.lobbyPlayers.get(sessionId)?.displayName || "Player",
+            deaths: this.room.state.deathCount.get(sessionId) ?? 0,
+            color: PLAYER_COLORS[player.color % PLAYER_COLORS.length],
+        })));
     }
 
     private addWorld<T extends Phaser.GameObjects.GameObject>(object: T): T {

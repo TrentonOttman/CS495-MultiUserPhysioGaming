@@ -32,8 +32,7 @@ export interface WorldSnapshot {
     /** Every player in room join order, INCLUDING the local one (its entry is ignored). */
     players: readonly PlayerSnapshot[];
     buttonPressFrame: number;
-    crateX: number;
-    crateY: number;
+    boxes: readonly { id: string; x: number; y: number }[];
 }
 
 /** The parts of the synced room state a snapshot is read from (`room.state` on either side). */
@@ -41,8 +40,7 @@ export interface SnapshotSource {
     levelNumber: number;
     players: Iterable<[string, Omit<PlayerSnapshot, "sessionId">]>;
     buttonPressFrame: number;
-    crateX: number;
-    crateY: number;
+    boxes: Iterable<[string, { x: number; y: number }]>
 }
 
 /** Copy the synced room state into a plain snapshot for {@link PhysioParkPredictionWorld.adopt}. */
@@ -64,8 +62,7 @@ export function snapshotOf(state: SnapshotSource): WorldSnapshot {
         level,
         players,
         buttonPressFrame: state.buttonPressFrame,
-        crateX: state.crateX,
-        crateY: state.crateY,
+        boxes: [...state.boxes].map(([id, box]) => ({ id, x: box.x, y: box.y })),
     };
 }
 
@@ -91,7 +88,7 @@ export class PhysioParkPredictionWorld {
     private world = new PhysicsWorld({ x: 0, y: GRAVITY });
     private level: ResolvedPhysioParkLevel | undefined;
     private buttonBody: Body | undefined;
-    private crateBody: Body | undefined;
+    private readonly boxBodies = new Map<string, Body>();
     private readonly selfBody = createPlayerBody();
     private readonly remoteBodies = new Map<string, Body>();
     /** Session ids in the order their bodies were added, to detect join/leave. */
@@ -110,9 +107,11 @@ export class PhysioParkPredictionWorld {
             const surface = getButtonSurface(snapshot.level.button, snapshot.buttonPressFrame);
             Object.assign(this.buttonBody.rect, surface);
         }
-        if (this.crateBody) {
-            this.crateBody.rect.x = snapshot.crateX;
-            this.crateBody.rect.y = snapshot.crateY;
+        for (const box of snapshot.boxes) {
+            const body = this.boxBodies.get(box.id);
+            if (!body) continue;
+            body.rect.x = box.x;
+            body.rect.y = box.y;
         }
 
         for (const player of snapshot.players) {
@@ -169,14 +168,17 @@ export class PhysioParkPredictionWorld {
         this.level = level;
         this.world = new PhysicsWorld({ x: 0, y: GRAVITY });
         this.buttonBody = undefined;
-        this.crateBody = undefined;
+        this.boxBodies.clear();
 
         for (const solid of level.solids) this.world.add(staticBody(solid));
 
         if (level.button) {
             this.buttonBody = this.world.add(staticBody(getButtonSurface(level.button, 0)));
-            // The crate is drawn from synced state; as an obstacle it is held where the server last put it.
-            this.crateBody = this.world.add(staticBody(level.button.crate));
+        }
+
+        for (const box of level.boxes ?? []) {
+            const body = this.world.add(new Body(new Rect(box.x, box.y, box.width, box.height)));
+            this.boxBodies.set(box.id, body);
         }
 
         // The room adds a lava sensor here. Respawning is left to the server

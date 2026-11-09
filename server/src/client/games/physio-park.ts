@@ -105,6 +105,8 @@ export class PhysioParkScene extends Phaser.Scene {
         this.load.spritesheet("flagSheet", "assets/FlagSheet.png", { frameWidth: 16, frameHeight: 16 });
         this.load.image("flagPole", "assets/FlagPole.png");
         this.load.image("crate16", "assets/Crate16x16.png");
+        this.load.image("DeathIcon", "assets/DeathIcon.png");
+        this.load.image("PicoIcon", "assets/PicoIcon.png");
 
         for (const animation of Object.values(PHYSIO_PARK_ANIMATIONS)) {
             this.load.spritesheet(animation.textureKey, animation.assetPath, {

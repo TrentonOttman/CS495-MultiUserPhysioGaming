@@ -94,6 +94,9 @@ export class PhysioParkScene extends Phaser.Scene {
 
     private statBoard: Phaser.GameObjects.Container;
 
+    private dyingPlayers = new Set<string>();
+    private celebrating = false;
+
     constructor(private readonly room: Room<PhysioParkRoom["state"]>) {
         super("physio-park");
     }
@@ -103,6 +106,8 @@ export class PhysioParkScene extends Phaser.Scene {
         this.load.spritesheet("walkSheet", "assets/RoboPicoWalk.png", { frameWidth: 16, frameHeight: 16 });
         this.load.spritesheet("jumpSheet", "assets/RoboPicoJump.png", { frameWidth: 16, frameHeight: 16 });
         this.load.spritesheet("flagSheet", "assets/FlagSheet.png", { frameWidth: 16, frameHeight: 16 });
+        this.load.spritesheet("deathSheet", "assets/RoboPicoDeath.png", { frameWidth: 16, frameHeight: 16 });
+        this.load.spritesheet("celebrateSheet", "assets/RoboPicoCelebrate.png", { frameWidth: 16, frameHeight: 16 });
         this.load.image("flagPole", "assets/FlagPole.png");
         this.load.image("crate16", "assets/Crate16x16.png");
         this.load.image("DeathIcon", "assets/DeathIcon.png");
@@ -142,6 +147,35 @@ export class PhysioParkScene extends Phaser.Scene {
         const callbacks = Callbacks.get(this.room);
         callbacks.onAdd("players", (player: Player, sessionId: string) => this.addPlayer(player, sessionId));
         callbacks.onRemove("players", (_player: Player, sessionId: string) => this.removePlayer(sessionId));
+
+        this.room.onMessage("player-death", ({ sessionId }: { sessionId: string }) => {
+            const sprite = this.playerEntities.get(sessionId);
+
+            if (!sprite || this.dyingPlayers.has(sessionId)) return;
+
+            this.dyingPlayers.add(sessionId);
+
+            // Resume normal animation handling after death animation finishes.
+            sprite.once("animationcomplete-death", () => {
+                this.dyingPlayers.delete(sessionId);
+            });
+
+            sprite.play("death", true);
+        });
+
+        this.room.onMessage("level-transition", ( bool ) => {
+            for (const [sessionId, sprite] of this.playerEntities)
+            {
+                if (bool) {
+                    sprite.play("celebrate", true);
+                    this.celebrating = true;
+                }
+                else
+                {
+                    this.celebrating = false;
+                }
+            }
+        });
 
         this.createStatBoard(callbacks);
     }
@@ -189,6 +223,18 @@ export class PhysioParkScene extends Phaser.Scene {
             key: "flag",
             frames: this.anims.generateFrameNumbers("flagSheet", { start: 0, end: 4 }),
             frameRate: 8,
+            repeat: -1,
+        });
+        this.anims.create({
+            key: "death",
+            frames: this.anims.generateFrameNumbers("deathSheet", { start: 0, end: 5 }),
+            frameRate: 10,
+            repeat: 0,
+        });
+        this.anims.create({
+            key: "celebrate",
+            frames: this.anims.generateFrameNumbers("celebrateSheet", { start: 0, end: 4 }),
+            frameRate: 10,
             repeat: -1,
         });
     }
@@ -454,6 +500,10 @@ export class PhysioParkScene extends Phaser.Scene {
             const motion = this.prediction?.motion(player, sessionId) ?? player;
             const moving = Math.abs(motion.vx) >= 0.0001;
             if (moving) sprite.setFlipX(motion.vx < 0);
+
+            if (this.dyingPlayers.has(sessionId) || this.celebrating) continue;
+
+
             const animation = motion.timeSinceGrounded > 0 ? "jump" : moving ? "walk" : "idle";
             sprite.play(animation, true);
         }

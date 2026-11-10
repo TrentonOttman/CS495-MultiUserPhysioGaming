@@ -31,6 +31,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     private crateBody: Body | undefined;
     private buttonBody: Body | undefined;
     private buttonPressTick = 0;
+    private respawningPlayers = new Set<string>();
 
     /** Physics steps at 60 Hz; state patches are sent at 30 Hz. */
     patchRate = 1000 / 30;
@@ -257,12 +258,15 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             return;
         }
 
+        this.broadcast("level-transition", true);
+
         this.state.levelPhase = "transitioning";
         this.transitionScheduled = true;
         this.clock.setTimeout(() => {
             if (!this.transitionScheduled || this.state.levelPhase !== "transitioning") return;
             this.transitionScheduled = false;
             this.loadLevel(this.currentLevelIndex + 1);
+            this.broadcast("level-transition", false);
         }, LEVEL_TRANSITION_DELAY_MS);
     }
 
@@ -417,18 +421,26 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     private respawnFromLava(body: Body) {
         if (body.isSensor) return;
         const sessionId = this.sessionByBody.get(body);
-        if (!sessionId) return;
+        if (!sessionId || this.respawningPlayers.has(sessionId)) return;
         const player = this.state.players.get(sessionId);
         if (!player?.connected) return;
 
-        const spawn = this.currentLevel.spawnPoint(this.spawnIndex.get(sessionId) ?? 0);
-        body.rect.x = spawn.x;
-        body.rect.y = spawn.y;
-        body.velocity = { x: 0, y: 0 };
-        body.timeSinceGrounded = 0;
+        this.respawningPlayers.add(sessionId);
 
-        const deaths = this.state.deathCount;
-        deaths.set(sessionId, (deaths.get(sessionId) ?? 0) + 1);
+        this.broadcast("player-death", { sessionId });
+
+        const spawn = this.currentLevel.spawnPoint(this.spawnIndex.get(sessionId) ?? 0);
+
+        this.clock.setTimeout(() => {
+            body.rect.x = spawn.x;
+            body.rect.y = spawn.y;
+            body.velocity = { x: 0, y: 0 };
+            body.timeSinceGrounded = 0;
+
+            const deaths = this.state.deathCount;
+            deaths.set(sessionId, (deaths.get(sessionId) ?? 0) + 1);
+            this.respawningPlayers.delete(sessionId);
+        }, 500);
     }
 
     // Immediately kill the room on restore to avoid crashing on stale physics state.

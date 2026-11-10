@@ -26,6 +26,9 @@ const STANDING_Y = GROUND_Y - PLAYER_HEIGHT;
 
 type TestRoomInternals = {
     playerMap: Map<string, Body>;
+    inputs: { get(sessionId: string): { size: number } };
+    _simulationInterval: ReturnType<typeof setInterval>;
+    step: () => void;
 };
 
 describe("physio_park_room", () => {
@@ -128,6 +131,11 @@ describe("physio_park_room", () => {
         await waitTicks(room, 10);
 
         const player = room.state.players.get(client1.sessionId)!;
+        const internals = room as unknown as TestRoomInternals;
+        // Freeze the automatic clock so catch-up ticks cannot consume the whole
+        // burst before the assertions observe each queued input.
+        clearInterval(internals._simulationInterval);
+
         const input = client1.input<MoveInput>({ mode: "reliable" });
         input.data.jump = false;
         input.data.moveX = 1;
@@ -136,11 +144,16 @@ describe("physio_park_room", () => {
         input.send();
         input.data.moveX = 0;
         input.send();
-        await room.waitForNextMessage();
+        const channel = internals.inputs.get(client1.sessionId);
+        await waitForState(() => channel.size === 3);
 
-        // The first tick after the burst applies the first buffered input.
-        await room.waitForNextTimestep();
+        // Each explicit room step applies exactly one queued frame.
+        internals.step();
         assert.ok(player.vx > 0, "the first buffered input moves right");
+        internals.step();
+        assert.ok(player.vx > 0, "the second buffered input moves right");
+        internals.step();
+        assert.strictEqual(player.vx, 0, "the third buffered input stops movement");
     });
 
     it("requires every active player at the goal and completes levels in order", async () => {

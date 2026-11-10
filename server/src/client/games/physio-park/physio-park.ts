@@ -16,7 +16,7 @@ import { PhysioParkRenderer } from "./physioParkRenderer.js";
 import { PLAYER_COLORS } from "./physioParkPalette.js";
 import { PhysioParkClientPrediction } from "./physioParkClientPrediction.js";
 import { PlayerNameTags } from "./physioParkNameTags.js";
-import { createStatBoard } from "../../statboard.js";
+import { createStatBoard } from "./statboard.js";
 
 export interface PhysioParkElements {
     game: HTMLElement;

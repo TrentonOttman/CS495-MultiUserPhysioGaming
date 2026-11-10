@@ -185,7 +185,7 @@ class PhysioParkScene extends Phaser.Scene {
     update(time: number, delta: number) {
         this.updateLevelIfNeeded();
         this.updateInput(time, delta);
-        this.levelRenderer.update();
+        this.levelRenderer.update(delta);
         this.hud.update(this.room.state.levelNumber, this.room.state.levelPhase);
         this.updatePlayerSprites();
         this.nameTags.update(this.room.state.players, this.playerEntities, this.room.state.lobbyPlayers);

@@ -242,6 +242,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         toggleHitSwitches(
             this.currentLevel.switches ?? [],
             hitSwitches,
+            this.currentLevel.movingPlatforms ?? [],
             this.state.playerSwitches,
             this.state.movingPlatforms,
             this.movingPlatformBodies,

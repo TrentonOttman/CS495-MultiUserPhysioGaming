@@ -6,7 +6,7 @@ import {
     type SpriteSheetAnimationDefinition,
 } from "../../../shared/physioPark/physioParkAnimations.js";
 import { PHYSIO_PARK_LEVELS } from "../../../shared/physioPark/physioParkLevel.js";
-import type { GoalFlagOffset, LevelTile } from "../../../shared/physioPark/levels/types.js";
+import type { GoalFlagOffset, LevelTile, MovingPlatformDefinition } from "../../../shared/physioPark/levels/types.js";
 import type { Solid } from "../../../shared/physioPark/physioParkMovement.js";
 import { PLAYER_COLORS } from "./physioParkPalette.js";
 
@@ -20,16 +20,29 @@ type SwitchView = {
 };
 type MovingPlatformView = {
     object: Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle;
-    width: number;
-    height: number;
+    definition: MovingPlatformDefinition;
+    lastX: number;
+    lastY: number;
+    lastActive: boolean;
+    lastTowardEnd: boolean;
+    lastReachedEnd: boolean;
+    elapsedMs: number;
 };
 type BoxView = {
     sprite: Phaser.GameObjects.Image;
     width: number;
     height: number;
+    previousX: number;
+    previousY: number;
+    targetX: number;
+    targetY: number;
+    lastX: number;
+    lastY: number;
+    elapsedMs: number;
 };
 
 const TILE_SIZE = 16;
+const BOX_INTERPOLATION_MS = 1000 / 30;
 
 /** Draws LDtk-authored levels and projects the server's dynamic object state. */
 export class PhysioParkRenderer {
@@ -51,13 +64,30 @@ export class PhysioParkRenderer {
         uiCamera.ignore(this.levelContainer);
     }
 
-    update() {
+    update(delta: number) {
         for (const [id, view] of this.boxSprites) {
             const state = this.room.state.boxes.get(id);
-            if (state) view.sprite.setPosition(state.x + view.width / 2, state.y + view.height / 2);
+            if (!state) continue;
+
+            if (state.x !== view.lastX || state.y !== view.lastY) {
+                view.previousX = view.targetX;
+                view.previousY = view.targetY;
+                view.targetX = state.x;
+                view.targetY = state.y;
+                view.lastX = state.x;
+                view.lastY = state.y;
+                view.elapsedMs = 0;
+            } else {
+                view.elapsedMs += delta;
+            }
+
+            const alpha = Math.min(1, view.elapsedMs / BOX_INTERPOLATION_MS);
+            const x = view.previousX + (view.targetX - view.previousX) * alpha;
+            const y = view.previousY + (view.targetY - view.previousY) * alpha;
+            view.sprite.setPosition(x + view.width / 2, y + view.height / 2);
         }
         this.updateButtonFrame();
-        this.updateMovingObjects();
+        this.updateMovingObjects(delta);
     }
 
     drawLevel(levelNumber: number) {
@@ -88,10 +118,44 @@ export class PhysioParkRenderer {
         this.drawButtonAndBoxes(level);
     }
 
-    private updateMovingObjects() {
+    private updateMovingObjects(delta: number) {
         for (const [id, view] of this.movingPlatformSprites) {
             const state = this.room.state.movingPlatforms.get(id);
-            if (state) view.object.setPosition(state.x + view.width / 2, state.y + view.height / 2);
+            if (!state) continue;
+
+            const changed = state.x !== view.lastX
+                || state.y !== view.lastY
+                || state.active !== view.lastActive
+                || state.towardEnd !== view.lastTowardEnd
+                || state.reachedEnd !== view.lastReachedEnd;
+            if (changed) {
+                view.lastX = state.x;
+                view.lastY = state.y;
+                view.lastActive = state.active;
+                view.lastTowardEnd = state.towardEnd;
+                view.lastReachedEnd = state.reachedEnd;
+                view.elapsedMs = 0;
+            } else {
+                view.elapsedMs += delta;
+            }
+
+            let x = state.x;
+            let y = state.y;
+            const { definition } = view;
+            if (state.active && !state.reachedEnd && definition.speed > 0) {
+                const targetX = state.towardEnd ? definition.endX : definition.x;
+                const targetY = state.towardEnd ? definition.endY : definition.y;
+                const dx = targetX - state.x;
+                const dy = targetY - state.y;
+                const remaining = Math.hypot(dx, dy);
+                if (remaining > 0) {
+                    const distance = Math.min(remaining, definition.speed * view.elapsedMs / 1000);
+                    x += dx / remaining * distance;
+                    y += dy / remaining * distance;
+                }
+            }
+
+            view.object.setPosition(x + definition.width / 2, y + definition.height / 2);
         }
         for (const [id, switchView] of this.playerSwitchSprites) {
             const state = this.room.state.playerSwitches.get(id);
@@ -233,12 +297,26 @@ export class PhysioParkRenderer {
 
         for (const box of level.boxes ?? []) {
             const texture = box.width === 32 && box.height === 32 ? "crate32" : "crate16";
+            const state = this.room.state.boxes.get(box.id);
+            const x = state?.x ?? box.x;
+            const y = state?.y ?? box.y;
             const sprite = this.addToLevel(this.scene.add.image(
-                box.x + box.width / 2,
-                box.y + box.height / 2,
+                x + box.width / 2,
+                y + box.height / 2,
                 texture,
             ).setOrigin(0.5).setDisplaySize(box.width, box.height));
-            this.boxSprites.set(box.id, { sprite, width: box.width, height: box.height });
+            this.boxSprites.set(box.id, {
+                sprite,
+                width: box.width,
+                height: box.height,
+                previousX: x,
+                previousY: y,
+                targetX: x,
+                targetY: y,
+                lastX: x,
+                lastY: y,
+                elapsedMs: BOX_INTERPOLATION_MS,
+            });
         }
     }
 
@@ -260,8 +338,13 @@ export class PhysioParkRenderer {
                 ).setDisplaySize(platform.width, platform.height));
                 this.movingPlatformSprites.set(platform.id, {
                     object: image,
-                    width: platform.width,
-                    height: platform.height,
+                    definition: platform,
+                    lastX: this.room.state.movingPlatforms.get(platform.id)?.x ?? platform.x,
+                    lastY: this.room.state.movingPlatforms.get(platform.id)?.y ?? platform.y,
+                    lastActive: this.room.state.movingPlatforms.get(platform.id)?.active ?? false,
+                    lastTowardEnd: this.room.state.movingPlatforms.get(platform.id)?.towardEnd ?? true,
+                    lastReachedEnd: this.room.state.movingPlatforms.get(platform.id)?.reachedEnd ?? false,
+                    elapsedMs: 0,
                 });
                 continue;
             }
@@ -276,8 +359,13 @@ export class PhysioParkRenderer {
             ).setStrokeStyle(1, 0x263238, 0.8));
             this.movingPlatformSprites.set(platform.id, {
                 object: sprite,
-                width: platform.width,
-                height: platform.height,
+                definition: platform,
+                lastX: this.room.state.movingPlatforms.get(platform.id)?.x ?? platform.x,
+                lastY: this.room.state.movingPlatforms.get(platform.id)?.y ?? platform.y,
+                lastActive: this.room.state.movingPlatforms.get(platform.id)?.active ?? false,
+                lastTowardEnd: this.room.state.movingPlatforms.get(platform.id)?.towardEnd ?? true,
+                lastReachedEnd: this.room.state.movingPlatforms.get(platform.id)?.reachedEnd ?? false,
+                elapsedMs: 0,
             });
         }
         for (const playerSwitch of level.switches ?? []) {

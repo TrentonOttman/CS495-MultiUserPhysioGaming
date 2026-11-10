@@ -260,7 +260,7 @@ export class Rect {
 
 let nextBodyId = 0;
 
-export type BodyTag = "player" | "lava" | "goal";
+export type BodyTag = "player" | "box" | "lava" | "goal";
 
 export interface OverlapRule {
     actorTag: BodyTag;
@@ -341,7 +341,8 @@ export class PhysicsWorld {
                 if (body.isStatic || body.isSensor) continue;
 
                 const support = this.findSupport(body, supportEpsilon);
-                if (support) supports.set(body, support);
+                const boxOnPlayer = body.hasTag("box") && support?.hasTag("player");
+                if (support && !boxOnPlayer) supports.set(body, support);
 
                 if(support && body.velocity.y >= 0) {
                     body.timeSinceGrounded = 0;
@@ -425,6 +426,17 @@ export class PhysicsWorld {
 
                     let aShare = aMoves ? (bMoves ? 0.5 : 1) : 0;
                     let bShare = bMoves ? (aMoves ? 0.5 : 1) : 0;
+
+                    // Give boxes more of the horizontal contact correction so
+                    // a player's normal movement pushes them along more easily.
+                    // This only changes how overlap is resolved; it adds no
+                    // velocity, so box momentum remains unchanged.
+                    if (offset.x !== 0 && aMoves && bMoves
+                        && ((a.hasTag("player") && b.hasTag("box"))
+                            || (a.hasTag("box") && b.hasTag("player")))) {
+                        aShare = a.hasTag("box") ? 0.85 : 0.15;
+                        bShare = b.hasTag("box") ? 0.85 : 0.15;
+                    }
 
                     // On vertical contact, move the upper body out of the
                     // overlap. Splitting a landing correction between two

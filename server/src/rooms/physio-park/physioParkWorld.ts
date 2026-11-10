@@ -69,6 +69,7 @@ export function createPhysioParkWorld(
         const body = world.add(new Body(
             new Rect(box.x, box.y, box.width, box.height),
         ));
+        body.tags.add("box");
         boxBodies.set(box.id, body);
         state.boxes.set(box.id, new BoxState({ x: box.x, y: box.y }));
     }

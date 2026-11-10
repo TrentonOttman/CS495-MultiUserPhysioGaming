@@ -4,6 +4,12 @@ import { applyPlayerInput, type PlayerInputLike } from "./physioParkInput.js";
 import { applyConveyorPush, conveyorPushUnder } from "./physioParkConveyors.js";
 import { getSpriteCollisionRects, PHYSIO_PARK_ANIMATIONS } from "./physioParkAnimations.js";
 import { PHYSIO_PARK_LEVELS, type ResolvedPhysioParkLevel } from "./physioParkLevel.js";
+import {
+    advanceMovingPlatforms,
+    detectSwitchHits,
+    finishMovingPlatforms,
+    toggleHitSwitches,
+} from "../../rooms/physio-park/physioParkRoomMechanics.js";
 
 /** The local player's predicted physics state: the synced `Player` fields `step` reads and writes. */
 export interface PredictedPlayerState {
@@ -13,6 +19,8 @@ export interface PredictedPlayerState {
     vy: number;
     timeSinceGrounded: number;
     grounded: boolean;
+    /** Player color is used to predict its assigned Level 3 switch. */
+    color?: number;
 }
 
 /** One player as the server last reported them. */
@@ -24,6 +32,22 @@ export interface PlayerSnapshot {
     vy: number;
     timeSinceGrounded: number;
     connected: boolean;
+    color?: number;
+}
+
+export interface MovingPlatformSnapshot {
+    id: string;
+    x: number;
+    y: number;
+    active: boolean;
+    towardEnd: boolean;
+    reachedEnd: boolean;
+}
+
+export interface PlayerSwitchSnapshot {
+    id: string;
+    active: boolean;
+    hitSequence: number;
 }
 
 /** Everything besides the local player that the server last reported. */
@@ -33,6 +57,8 @@ export interface WorldSnapshot {
     players: readonly PlayerSnapshot[];
     buttonPressFrame: number;
     boxes: readonly { id: string; x: number; y: number }[];
+    movingPlatforms?: readonly MovingPlatformSnapshot[];
+    playerSwitches?: readonly PlayerSwitchSnapshot[];
 }
 
 /** The parts of the synced room state a snapshot is read from (`room.state` on either side). */
@@ -41,6 +67,8 @@ export interface SnapshotSource {
     players: Iterable<[string, Omit<PlayerSnapshot, "sessionId">]>;
     buttonPressFrame: number;
     boxes: Iterable<[string, { x: number; y: number }]>
+    movingPlatforms?: Iterable<[string, Omit<MovingPlatformSnapshot, "id">]>;
+    playerSwitches?: Iterable<[string, Omit<PlayerSwitchSnapshot, "id">]>;
 }
 
 /** Copy the synced room state into a plain snapshot for {@link PhysioParkPredictionWorld.adopt}. */
@@ -56,6 +84,7 @@ export function snapshotOf(state: SnapshotSource): WorldSnapshot {
             vy: p.vy,
             timeSinceGrounded: p.timeSinceGrounded,
             connected: p.connected,
+            color: p.color,
         });
     }
     return {
@@ -63,6 +92,12 @@ export function snapshotOf(state: SnapshotSource): WorldSnapshot {
         players,
         buttonPressFrame: state.buttonPressFrame,
         boxes: [...state.boxes].map(([id, box]) => ({ id, x: box.x, y: box.y })),
+        movingPlatforms: state.movingPlatforms
+            ? [...state.movingPlatforms].map(([id, platform]) => ({ id, ...platform }))
+            : [],
+        playerSwitches: state.playerSwitches
+            ? [...state.playerSwitches].map(([id, playerSwitch]) => ({ id, ...playerSwitch }))
+            : [],
     };
 }
 
@@ -89,6 +124,9 @@ export class PhysioParkPredictionWorld {
     private level: ResolvedPhysioParkLevel | undefined;
     private buttonBody: Body | undefined;
     private readonly boxBodies = new Map<string, Body>();
+    private readonly movingPlatformBodies = new Map<string, Body>();
+    private readonly movingPlatformStates = new Map<string, MovingPlatformSnapshot>();
+    private readonly playerSwitchStates = new Map<string, PlayerSwitchSnapshot>();
     private readonly selfBody = createPlayerBody();
     private readonly remoteBodies = new Map<string, Body>();
     /** Session ids in the order their bodies were added, to detect join/leave. */
@@ -112,6 +150,19 @@ export class PhysioParkPredictionWorld {
             if (!body) continue;
             body.rect.x = box.x;
             body.rect.y = box.y;
+        }
+        for (const platform of snapshot.movingPlatforms ?? []) {
+            const body = this.movingPlatformBodies.get(platform.id);
+            const state = this.movingPlatformStates.get(platform.id);
+            if (body) {
+                body.rect.x = platform.x;
+                body.rect.y = platform.y;
+            }
+            if (state) Object.assign(state, platform);
+        }
+        for (const playerSwitch of snapshot.playerSwitches ?? []) {
+            const state = this.playerSwitchStates.get(playerSwitch.id);
+            if (state) Object.assign(state, playerSwitch);
         }
 
         for (const player of snapshot.players) {
@@ -147,7 +198,22 @@ export class PhysioParkPredictionWorld {
             applyConveyorPush(remote, level.conveyors);
         }
 
+        const hitSwitches = detectSwitchHits(
+            level.switches ?? [],
+            [["self", { connected: true, color: self.color ?? -1 }]],
+            new Map([["self", body]]),
+        );
+        advanceMovingPlatforms(level.movingPlatforms ?? [], this.movingPlatformStates, this.movingPlatformBodies);
         this.world.step();
+        finishMovingPlatforms(level.movingPlatforms ?? [], this.movingPlatformStates, this.movingPlatformBodies);
+        toggleHitSwitches(
+            level.switches ?? [],
+            hitSwitches,
+            level.movingPlatforms ?? [],
+            this.playerSwitchStates,
+            this.movingPlatformStates,
+            this.movingPlatformBodies,
+        );
 
         self.x = body.rect.x;
         self.y = body.rect.y;
@@ -169,8 +235,36 @@ export class PhysioParkPredictionWorld {
         this.world = new PhysicsWorld({ x: 0, y: GRAVITY });
         this.buttonBody = undefined;
         this.boxBodies.clear();
+        this.movingPlatformBodies.clear();
+        this.movingPlatformStates.clear();
+        this.playerSwitchStates.clear();
 
         for (const solid of level.solids) this.world.add(staticBody(solid));
+
+        for (const platform of level.movingPlatforms ?? []) {
+            const body = this.world.add(new Body(
+                new Rect(platform.x, platform.y, platform.width, platform.height),
+                { x: 0, y: 0 }, false, false, 0, 0, true,
+            ));
+            this.movingPlatformBodies.set(platform.id, body);
+            this.movingPlatformStates.set(platform.id, {
+                id: platform.id,
+                x: platform.x,
+                y: platform.y,
+                active: false,
+                towardEnd: true,
+                reachedEnd: false,
+            });
+        }
+
+        for (const playerSwitch of level.switches ?? []) {
+            this.playerSwitchStates.set(playerSwitch.id, {
+                id: playerSwitch.id,
+                active: false,
+                hitSequence: 0,
+            });
+            this.world.add(staticBody(playerSwitch));
+        }
 
         if (level.button) {
             this.buttonBody = this.world.add(staticBody(getButtonSurface(level.button, 0)));
@@ -178,7 +272,14 @@ export class PhysioParkPredictionWorld {
 
         for (const box of level.boxes ?? []) {
             const body = this.world.add(new Body(new Rect(box.x, box.y, box.width, box.height)));
+            body.tags.add("box");
             this.boxBodies.set(box.id, body);
+        }
+
+        // Keep the same body order as the room; lava sensors have no solid
+        // effect during prediction, but their insertion order matters.
+        for (const lava of level.lavas) {
+            this.world.add(new Body(new Rect(lava.x, lava.y, lava.width, lava.height), { x: 0, y: 0 }, true, true));
         }
 
         // The room adds a lava sensor here. Respawning is left to the server

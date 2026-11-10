@@ -71,6 +71,7 @@ export function detectSwitchHits(
 export function toggleHitSwitches(
     switches: readonly PlayerSwitchDefinition[],
     hitSwitches: ReadonlySet<string>,
+    platforms: readonly MovingPlatformDefinition[],
     switchStates: StateMap<PlayerSwitchRuntimeState>,
     platformStates: StateMap<MovingPlatformRuntimeState>,
     platformBodies: ReadonlyMap<string, Body>,
@@ -86,6 +87,19 @@ export function toggleHitSwitches(
         const platformState = platformStates.get(playerSwitch.target);
         const platformBody = platformBodies.get(playerSwitch.target);
         if (!platformState || !platformBody) continue;
+
+        const platform = platforms.find(({ id }) => id === playerSwitch.target);
+        if (platform?.movementType === "Once") {
+            // A Once platform starts on its first hit, reverses immediately on
+            // later hits while traveling, and rests only after reaching an end.
+            if (platformState.active || platformState.reachedEnd) {
+                platformState.towardEnd = !platformState.towardEnd;
+            }
+            platformState.reachedEnd = false;
+            platformState.active = true;
+            continue;
+        }
+
         platformState.active = switchState.active;
         if (!platformState.active) platformBody.velocity = { x: 0, y: 0 };
     }

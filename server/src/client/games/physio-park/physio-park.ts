@@ -10,7 +10,7 @@ import {
 import { RESOLUTION_X, RESOLUTION_Y, TICK_RATE } from "../../../shared/physioPark/physioParkConstants.js";
 import { PHYSIO_PARK_LEVELS } from "../../../shared/physioPark/physioParkLevel.js";
 import { setupRoom } from "../roomSetup.ts";
-import { getSensitivity, getPeak } from "../../../sensor/sensorData.js";
+import { getSensitivity, getWaveIntegral } from "../../../sensor/sensorData.js";
 import { PhysioParkHud } from "./physioParkHud.js";
 import { PhysioParkRenderer } from "./physioParkRenderer.js";
 import { PLAYER_COLORS } from "./physioParkPalette.js";
@@ -245,7 +245,7 @@ class PhysioParkScene extends Phaser.Scene {
     private updateInput(time: number, delta: number) {
         const moveX = this.getHorizontalMove();
         const jumpThreshold = getSensitivity();
-        const jump = this.isAnyKeyDown(this.keys.jump) || getPeak() > jumpThreshold;
+        const jump = this.isAnyKeyDown(this.keys.jump) || getWaveIntegral() > jumpThreshold;
         let steps: number;
         if (this.prediction) {
             steps = this.prediction.tick(time);

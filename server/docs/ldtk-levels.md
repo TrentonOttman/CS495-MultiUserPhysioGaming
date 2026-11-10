@@ -1,42 +1,53 @@
 # LDtk levels
 
-Physio Park can use an LDtk project as its level source. From `server/`, run:
+Physio Park levels are authored in LDtk and converted to TypeScript for use by the
+server and Phaser client. Run the converter from the `server/` directory:
 
 ```sh
-npm run levels:convert -- ../docs/planning/ldtkLevel1/Level1.ldtk
+npm run levels:convert -- ../docs/planning/ldtkLevel1/Level1.ldtk Level_1 ldtkLevel1
+npm run levels:convert -- ../docs/planning/ldtkLevel2/level2.ldtk Level_2 ldtkLevel2
+npm run levels:convert -- ../docs/planning/ldtkLevel3/level2.ldtk Level_3 ldtkLevel3
 ```
 
-The converter writes `src/shared/physioPark/levels/ldtkLevel1.ts` and copies referenced
-tileset images into `public/assets/tilesets/`. Level 1 imports that generated module, so
-the server uses its collision rectangles and the Phaser client draws its LDtk tile layer.
-Commit both generated files with the level change. Re-run the command after editing or
-exporting the LDtk project. An optional second argument selects a level identifier:
+The arguments are the LDtk project path, the level identifier to convert, and the
+output module name. The last two arguments are optional: if omitted, the converter
+uses the first level in the project and the parent folder name for the output module.
+The converted files are written to `src/shared/physioPark/levels/<output name>.ts`.
+Referenced tileset atlases and level backgrounds are copied into `public/assets/`.
 
-```sh
-npm run levels:convert -- path/to/project.ldtk Level_0
-```
+When changing a level, export or save the LDtk project, run the corresponding command,
+and commit the project, generated TypeScript file, and any copied image assets. The
+runtime level adapters in `src/shared/physioPark/levels/level1.ts`, `level2.ts`, and
+`level3.ts` select which generated project feeds each game level.
 
-## LDtk authoring convention
+## Supported terrain and entities
 
-- Use an IntGrid layer with values named `Ground` or `Platform` for solids and `Lava` for
-  the hazard. Adjacent cells are merged into collision rectangles.
-- Optional conveyor IntGrid values may be named `Conveyor_Left` and `Conveyor_Right`;
-  they become solid surfaces pushed at 28 px/s in the indicated direction.
-- Add at least one `SpawnPoint` entity. Its horizontal center is used as the player
-  center; its y coordinate marks the player's feet / supporting surface.
-- Add a rectangular `GoalArea` entity. All players must have their centers inside it to
-  finish the level. For the existing sample, `GoalPost` is used as the flag anchor and
-  creates a 96-by-48 trigger above the supporting platform. Add `GoalPost` to future
-  levels to place the game's animated flag; its entity center gives the pole's x position
-  and its top gives the platform contact y coordinate.
-- Keep lava in one contiguous region for now; multiple disconnected lava regions are
-  rejected by the converter instead of silently becoming one oversized hazard.
-- Use external tileset images. Auto-layer and grid tile placements are exported and
-  rendered from the copied atlas image.
-- A level background image referenced by LDtk's `bgRelPath` is copied and rendered behind
-  level art.
-- `Button` and `Box` entities together create the existing press-button / falling-crate
-  objective. The button uses the shared button sprite; the box bounds become its crate.
+- Use IntGrid values named `Ground`, `Platform`, or `Solid` for player collision and
+  `Lava` for hazards. Adjacent cells are merged into rectangles in the generated data.
+- Optional IntGrid values `Conveyor_Left` and `Conveyor_Right` create solid conveyor
+  surfaces that push objects at 28 pixels per second in the named direction.
+- Add at least one `SpawnPoint`. Its horizontal center is the spawn x position, and its
+  y coordinate marks the player's feet/supporting surface.
+- Add a rectangular `GoalArea` to define where players must gather. Every active player
+  must enter it to complete a level. Level 2 also requires its button to have been
+  pressed. A `GoalFlag` places the flag using the entity's bottom-center as its anchor.
+  For older projects, a `GoalPost` can place the flag and, when no `GoalArea` exists,
+  create a default goal trigger above the solid surface beneath it.
+- Add `Box` entities for gravity-driven, pushable boxes. Their entity bounds define the
+  box size and starting position.
+- Add a `Button` entity to create a pressable animated button. Its optional `Target`
+  reference selects the moving platform it activates.
+- Add `MovingPlatform` entities with an `EndPoint` reference, speed, platform type, and
+  movement type (`Once` or `PingPong`). `Once` platforms start when activated and stop
+  at an endpoint; subsequent switch hits reverse them. `PingPong` platforms travel
+  between endpoints while active.
+- Add `PlayerSwitch` entities to activate or toggle their referenced moving platforms
+  when the assigned player hits the switch from below. Set the `Player` field to that
+  player's color/index and `Target` to a `MovingPlatform`.
+- Use external tileset images. LDtk auto-layer and grid tile placements are exported and
+  rendered from the copied atlas. The image referenced by LDtk's `bgRelPath` is copied
+  and rendered as the level background.
 
-The generated level dimensions and entity positions are in LDtk pixels. The game retains
-its usual level progression and gameplay rules around the imported geometry.
+The converter uses LDtk pixel coordinates for dimensions, entity positions, and tile
+placements. It validates entity references and requires collision cells, lava cells,
+at least one spawn, and either a `GoalArea` or a usable `GoalPost`.

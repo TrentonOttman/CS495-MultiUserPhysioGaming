@@ -137,6 +137,8 @@ export function createStatBoard(
                 rowBackground.setFillStyle(player.color ?? ROW_COLOR, alpha);
                 nameLabel.setText(player.name);
                 deathLabel.setText(String(player.deaths));
+                playerIcon.setAlpha(1);
+                deathIcon.setAlpha(1);
                 playerIcon.setTint(player.color ?? ROW_COLOR);
                 playerIcon.setScale(4,4);
                 deathIcon.setScale(4,4);

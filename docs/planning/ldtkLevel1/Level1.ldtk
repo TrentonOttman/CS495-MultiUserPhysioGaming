@@ -926,7 +926,7 @@
 			"__cHei": 9,
 			"identifier": "AllTiles",
 			"uid": 6,
-			"relPath": "AllTiles.png",
+			"relPath": "../../../server/public/assets/tilesets/AllTiles.png",
 			"embedAtlas": null,
 			"pxWid": 72,
 			"pxHei": 72,
@@ -946,7 +946,7 @@
 	], "enums": [], "externalEnums": [], "levelFields": [] },
 	"levels": [
 		{
-			"identifier": "Level_0",
+			"identifier": "Level_1",
 			"iid": "4bd41e11-bde0-11f1-8e10-d7a8c4615816",
 			"uid": 0,
 			"worldX": 0,
@@ -957,7 +957,7 @@
 			"__bgColor": "#DFDBCE",
 			"bgColor": null,
 			"useAutoIdentifier": true,
-			"bgRelPath": "SkyCreamVar.png",
+			"bgRelPath": "../../../server/public/assets/backgrounds/SkyCreamVar.png",
 			"bgPos": "Cover",
 			"bgPivotX": 0.5,
 			"bgPivotY": 0.5,

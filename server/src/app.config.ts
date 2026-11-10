@@ -13,7 +13,7 @@ import {
  */
 import { MyRoom } from "./rooms/MyRoom.js";
 import { PongRoom } from "./rooms/PongRoom.js";
-import { PhysioParkRoom } from "./rooms/PhysioParkRoom.js";
+import { PhysioParkRoom } from "./rooms/physio-park/PhysioParkRoom.js";
 import { resolveJoinCode } from "./lobby/joinCodeIndex.js";
 // Aliased: `LobbyRoom` above is Colyseus's built-in room browser. This is ours.
 import { LobbyRoom as SessionLobby } from "./rooms/LobbyRoom.js";

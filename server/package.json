@@ -11,6 +11,7 @@
         "start": "node dist/server/server.mjs",
         "loadtest": "tsx loadtest/example.ts --room my_room --numClients 2",
         "build": "vite build",
+        "levels:convert": "node scripts/convert-ldtk.mjs",
         "clean": "rimraf dist",
         "test": "mocha -r tsx -r ./test/root-hooks.ts test/**.test.ts --exit --timeout 15000",
         "dev": "vite",

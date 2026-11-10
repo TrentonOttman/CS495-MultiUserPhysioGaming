@@ -7,6 +7,12 @@ import {
     type LobbyMetadata,
 } from "../../shared/lobbyConfig.js";
 
+type LobbyPlayer = { connected?: boolean };
+type LobbyPlayerCollection = {
+    get(sessionId: string): LobbyPlayer | undefined;
+    delete(sessionId: string): boolean;
+};
+
 /**
  * Base class for a game room that a lobby can start.
  *
@@ -36,6 +42,11 @@ export abstract class LobbyCapableRoom<S extends LobbyState & { players: Map<str
 
     /** Set from the validated options so `onLobbyCreate` can read them. */
     protected lobbyConfig!: LobbyConfig;
+
+    /** Game state schemas add a player map; lobby-only state does not. */
+    private get gamePlayers(): LobbyPlayerCollection {
+        return (this.state as unknown as { players: LobbyPlayerCollection }).players;
+    }
 
     async onCreate(options: any) {
         const result = validateLobbyConfig(options);
@@ -102,8 +113,8 @@ export abstract class LobbyCapableRoom<S extends LobbyState & { players: Map<str
         this.allowReconnection(client, this.reconnectionTime);
     
         // Mark player as disconnected (but don't remove them)
-        const player = this.state.players.get(client.sessionId);
-        if (player) {
+        const player = this.gamePlayers.get(client.sessionId);
+        if (player && "connected" in player) {
             player.connected = false;
         }
 
@@ -114,7 +125,7 @@ export abstract class LobbyCapableRoom<S extends LobbyState & { players: Map<str
     onLeave(client: Client, code: number) {
         console.log(`Client ${client.sessionId} left permanently (code: ${code})`);
         // Now it's safe to remove the player
-        this.state.players.delete(client.sessionId);
+        this.gamePlayers.delete(client.sessionId);
 
         this.broadcast("leave", "Player Left");
         
@@ -130,8 +141,8 @@ export abstract class LobbyCapableRoom<S extends LobbyState & { players: Map<str
         console.log(`Client ${client.sessionId} reconnected!`);
     
         // Restore player connection status
-        const player = this.state.players.get(client.sessionId);
-        if (player) {
+        const player = this.gamePlayers.get(client.sessionId);
+        if (player && "connected" in player) {
             player.connected = true;
         }
     }

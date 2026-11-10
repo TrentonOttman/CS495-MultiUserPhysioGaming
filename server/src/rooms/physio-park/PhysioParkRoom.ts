@@ -1,36 +1,49 @@
 import type { Client, StepContext } from "colyseus";
-import { LobbyCapableRoom } from "./base/LobbyCapableRoom.js";
-import { PhysioParkState, Player, MoveInput } from "./schema/PhysioParkState.js";
-import { Body, PhysicsWorld, Rect } from "../shared/physioPark/physioParkMovement.js";
+import { LobbyCapableRoom } from "../base/LobbyCapableRoom.js";
 import {
-    GRAVITY,
+    PhysioParkState,
+    Player,
+    MoveInput,
+} from "../schema/PhysioParkState.js";
+import { Body, PhysicsWorld, Rect } from "../../shared/physioPark/physioParkMovement.js";
+import {
     LEVEL_TRANSITION_DELAY_MS,
     PLAYER_HEIGHT,
     PLAYER_HEIGHT_HALF,
     PLAYER_WIDTH,
     PLAYER_WIDTH_HALF,
     TICK_RATE,
-} from "../shared/physioPark/physioParkConstants.js";
-import { applyPlayerInput, NO_INPUT } from "../shared/physioPark/physioParkInput.js";
-import { applyConveyorPush } from "../shared/physioPark/physioParkConveyors.js";
-import { PHYSIO_PARK_LEVELS, type ResolvedPhysioParkLevel } from "../shared/physioPark/physioParkLevel.js";
-import { getSpriteCollisionRects, PHYSIO_PARK_ANIMATIONS } from "../shared/physioPark/physioParkAnimations.js";
-import { validateDisplayName } from "../shared/displayName.ts";
-import { PlayerInfo } from "./schema/LobbyState.ts";
+} from "../../shared/physioPark/physioParkConstants.js";
+import { applyPlayerInput, NO_INPUT } from "../../shared/physioPark/physioParkInput.js";
+import { PHYSIO_PARK_LEVELS, type ResolvedPhysioParkLevel } from "../../shared/physioPark/physioParkLevel.js";
+import { PHYSIO_PARK_ANIMATIONS } from "../../shared/physioPark/physioParkAnimations.js";
+import { validateDisplayName } from "../../shared/displayName.ts";
+import { PlayerInfo } from "../schema/LobbyState.ts";
+import {
+    advanceMovingPlatforms,
+    detectSwitchHits,
+    finishMovingPlatforms,
+    getButtonSurface,
+    isCenteredOnButton,
+    isStandingOn,
+    toggleHitSwitches,
+} from "./physioParkRoomMechanics.js";
+import { createPhysioParkWorld } from "./physioParkWorld.js";
 
 export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput> {
     maxClients = 8;
     state = new PhysioParkState();
 
-    private world = new PhysicsWorld({ x: 0, y: GRAVITY });
+    private world!: PhysicsWorld;
     private playerMap = new Map<string, Body>();
     private sessionByBody = new Map<Body, string>();
     private currentLevelIndex = 0;
     private transitionScheduled = false;
     private inputLockedUntilFresh = new Set<string>();
-    private crateBody: Body | undefined;
     private buttonBody: Body | undefined;
     private buttonPressTick = 0;
+    private movingPlatformBodies = new Map<string, Body>();
+    private boxBodies = new Map<string, Body>();
 
     /** Physics steps at 60 Hz; state patches are sent at 30 Hz. */
     patchRate = 1000 / 30;
@@ -86,6 +99,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             timeSinceGrounded: 0,
             color: index % 8,
         }));
+        this.state.deathCount.set(client.sessionId, 0);
 
         const body = new Body(
             new Rect(spawn.x, spawn.y, PLAYER_WIDTH, PLAYER_HEIGHT),
@@ -131,6 +145,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     override onLeave(client: Client, code: number) {
         this.spawnIndex.delete(client.sessionId);
         this.inputLockedUntilFresh.delete(client.sessionId);
+        this.state.deathCount.delete(client.sessionId);
         const body = this.playerMap.get(client.sessionId);
         if (body) {
             this.world.remove(body);
@@ -176,16 +191,20 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
 
             const input = channel?.next() ?? NO_INPUT;
             applyPlayerInput(body, input);
-            applyConveyorPush(body, this.currentLevel.conveyors);
+            for (const conveyor of this.currentLevel.conveyors ?? []) {
+                if (!isStandingOn(body, conveyor.surface)) continue;
+                body.velocity = { x: body.velocity.x + conveyor.pushSpeed, y: body.velocity.y };
+                break;
+            }
             player.vx = body.velocity.x;
         }
 
-        if (this.crateBody && !this.crateBody.isStatic) {
+        for (const boxBody of this.boxBodies.values()) {
             for (const conveyor of this.currentLevel.conveyors ?? []) {
-                if (!this.isStandingOn(this.crateBody, conveyor.surface)) continue;
-                this.crateBody.velocity = {
+                if (!isStandingOn(boxBody, conveyor.surface)) continue;
+                boxBody.velocity = {
                     x: conveyor.pushSpeed,
-                    y: this.crateBody.velocity.y,
+                    y: boxBody.velocity.y,
                 };
                 break;
             }
@@ -197,14 +216,37 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             const surface = getButtonSurface(button, this.state.buttonPressFrame);
             for (const [sessionId, player] of this.state.players) {
                 const body = this.playerMap.get(sessionId);
-                if (player.connected && body && this.isCenteredOnButton(body, surface)) {
+                if (player.connected && body && isCenteredOnButton(body, surface)) {
                     playersOnButtonBeforeStep.add(sessionId);
                 }
             }
         }
 
+        const hitSwitches = detectSwitchHits(
+            this.currentLevel.switches ?? [],
+            this.state.players,
+            this.playerMap,
+        );
         this.advanceButtonPress();
+        advanceMovingPlatforms(
+            this.currentLevel.movingPlatforms ?? [],
+            this.state.movingPlatforms,
+            this.movingPlatformBodies,
+        );
         this.world.step();
+        finishMovingPlatforms(
+            this.currentLevel.movingPlatforms ?? [],
+            this.state.movingPlatforms,
+            this.movingPlatformBodies,
+        );
+        toggleHitSwitches(
+            this.currentLevel.switches ?? [],
+            hitSwitches,
+            this.currentLevel.movingPlatforms ?? [],
+            this.state.playerSwitches,
+            this.state.movingPlatforms,
+            this.movingPlatformBodies,
+        );
 
         if (button && !this.state.buttonPressed) {
             const surface = getButtonSurface(button, this.state.buttonPressFrame);
@@ -213,9 +255,9 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
                 const body = this.playerMap.get(sessionId);
                 return body !== undefined
                     && !playersOnButtonBeforeStep.has(sessionId)
-                    && this.isCenteredOnButton(body, surface);
+                    && isCenteredOnButton(body, surface);
             });
-            if (landedOnButton) this.dropCrateFromButton();
+            if (landedOnButton) this.pressButton();
         }
 
         for (const [sessionId, player] of this.state.players) {
@@ -230,9 +272,11 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             player.grounded = body.timeSinceGrounded === 0;
         }
 
-        if (this.crateBody) {
-            this.state.crateX = this.crateBody.rect.x;
-            this.state.crateY = this.crateBody.rect.y;
+        for (const [id, body] of this.boxBodies) {
+            const boxState = this.state.boxes.get(id);
+            if (!boxState) continue;
+            boxState.x = body.rect.x;
+            boxState.y = body.rect.y;
         }
 
         const activePlayers = [...this.state.players.values()]
@@ -319,78 +363,30 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
 
     /** Rebuild only level geometry; session and player bodies remain room-owned. */
     private rebuildWorld() {
-        const level = this.currentLevel;
-        this.world = new PhysicsWorld({ x: 0, y: GRAVITY });
-        this.crateBody = undefined;
-        this.buttonBody = undefined;
         this.buttonPressTick = 0;
-        this.state.buttonPressed = false;
-        this.state.buttonPressFrame = 0;
-        this.state.crateDropped = false;
-        this.state.crateX = 0;
-        this.state.crateY = 0;
-
-        for (const solid of level.solids) {
-            this.world.add(new Body(new Rect(solid.x, solid.y, solid.width, solid.height), { x: 0, y: 0 }, true));
-        }
-
-        if (level.button) {
-            const surface = getButtonSurface(level.button, 0);
-            this.buttonBody = this.world.add(new Body(
-                new Rect(surface.x, surface.y, surface.width, surface.height),
-                { x: 0, y: 0 },
-                true,
-            ));
-
-            const crate = level.button.crate;
-            this.crateBody = this.world.add(new Body(
-                new Rect(crate.x, crate.y, crate.width, crate.height),
-                { x: 0, y: 0 },
-                true,
-            ));
-            this.state.crateX = crate.x;
-            this.state.crateY = crate.y;
-        }
-
-        const lava = this.world.add(
-            new Body(new Rect(level.lava.x, level.lava.y, level.lava.width, level.lava.height), { x: 0, y: 0 }, true, true),
+        const parts = createPhysioParkWorld(
+            this.currentLevel,
+            this.state,
+            this.playerMap.values(),
+            (body) => this.respawnFromLava(body),
         );
-        lava.tags.add("lava");
-
-        this.world.addOverlapRule({
-            actorTag: "player",
-            targetTag: "lava",
-            handle: (body) => this.respawnFromLava(body),
-        });
-
-        for (const body of this.playerMap.values()) this.world.add(body);
+        this.world = parts.world;
+        this.buttonBody = parts.buttonBody;
+        this.movingPlatformBodies = parts.movingPlatformBodies;
+        this.boxBodies = parts.boxBodies;
     }
 
-    private isStandingOn(body: Body, surface: { x: number; y: number; width: number; height: number }): boolean {
-        const feetY = body.rect.y + body.rect.height;
-        const horizontalOverlap = body.rect.x < surface.x + surface.width
-            && body.rect.x + body.rect.width > surface.x;
-        return horizontalOverlap && Math.abs(feetY - surface.y) <= 1.5;
-    }
-
-    private isCenteredOnButton(body: Body, surface: { x: number; y: number; width: number; height: number }): boolean {
-        const playerCenterX = body.rect.x + body.rect.width / 2;
-        const feetY = body.rect.y + body.rect.height;
-        return playerCenterX >= surface.x
-            && playerCenterX < surface.x + surface.width
-            && Math.abs(feetY - surface.y) <= 1.5;
-    }
-
-    /** Landing on the button activates its one-time crate drop. */
-    private dropCrateFromButton() {
-        if (!this.currentLevel.button || !this.buttonBody || !this.crateBody || this.state.buttonPressed) return;
+    /** Landing on the button activates its target platform once. */
+    private pressButton() {
+        const button = this.currentLevel.button;
+        if (!button || !this.buttonBody || this.state.buttonPressed) return;
         this.state.buttonPressed = true;
         this.state.buttonPressFrame = 0;
         this.buttonPressTick = 0;
-        this.state.crateDropped = true;
-        this.crateBody.isStatic = false;
-        this.crateBody.velocity = { x: 0, y: 0 };
-        this.crateBody.timeSinceGrounded = 0;
+
+        if (!button.target) return;
+        const platformState = this.state.movingPlatforms.get(button.target);
+        if (platformState) platformState.active = true;
     }
 
     /** Keep the server collider on the same animation frame as the rendered cap. */
@@ -426,25 +422,11 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
         body.rect.y = spawn.y;
         body.velocity = { x: 0, y: 0 };
         body.timeSinceGrounded = 0;
-
-        const deaths = this.state.deathCount;
-        deaths.set(sessionId, (deaths.get(sessionId) ?? 0) + 1);
+        this.state.deathCount.set(sessionId, (this.state.deathCount.get(sessionId) ?? 0) + 1);
     }
 
     // Immediately kill the room on restore to avoid crashing on stale physics state.
     async onRestoreRoom() {
         await this.disconnect();
     }
-}
-
-function getButtonSurface(
-    button: NonNullable<ResolvedPhysioParkLevel["button"]>,
-    playbackFrame: number,
-) {
-    const sprite = PHYSIO_PARK_ANIMATIONS[button.sprite];
-    const surface = getSpriteCollisionRects(sprite, button.position, playbackFrame)[0];
-    if (!surface) {
-        throw new Error(`Missing collision shape for button sprite "${button.sprite}" at frame ${playbackFrame}`);
-    }
-    return surface;
 }

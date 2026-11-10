@@ -260,7 +260,7 @@ export class Rect {
 
 let nextBodyId = 0;
 
-export type BodyTag = "player" | "lava" | "goal";
+export type BodyTag = "player" | "box" | "lava" | "goal";
 
 export interface OverlapRule {
     actorTag: BodyTag;
@@ -283,6 +283,7 @@ export class Body {
         public isSensor = false,
         public gravityScale = 1,
         public timeSinceGrounded = 0,
+        public isKinematic = false,
     ) { }
 }
 
@@ -340,7 +341,8 @@ export class PhysicsWorld {
                 if (body.isStatic || body.isSensor) continue;
 
                 const support = this.findSupport(body, supportEpsilon);
-                if (support) supports.set(body, support);
+                const boxOnPlayer = body.hasTag("box") && support?.hasTag("player");
+                if (support && !boxOnPlayer) supports.set(body, support);
 
                 if(support && body.velocity.y >= 0) {
                     body.timeSinceGrounded = 0;
@@ -351,10 +353,12 @@ export class PhysicsWorld {
             for (const body of this.bodies) {
                 if (body.isStatic) continue;
 
-                body.velocity = Vec2.add(
-                    body.velocity,
-                    Vec2.multiply(this.gravity, dt * body.gravityScale),
-                );
+                if (!body.isKinematic) {
+                    body.velocity = Vec2.add(
+                        body.velocity,
+                        Vec2.multiply(this.gravity, dt * body.gravityScale),
+                    );
+                }
 
                 const position = Vec2.add(
                     { x: body.rect.x, y: body.rect.y },
@@ -406,7 +410,7 @@ export class PhysicsWorld {
                     const a = this.bodies[i];
                     const b = this.bodies[j];
 
-                    if (a.isStatic && b.isStatic) continue;
+                    if ((a.isStatic || a.isKinematic) && (b.isStatic || b.isKinematic)) continue;
                     if (!a.rect.overlaps(b.rect)) continue;
 
                     if (a.isSensor || b.isSensor) {
@@ -415,11 +419,38 @@ export class PhysicsWorld {
                     }
 
                     const offset = a.rect.collisionOffset(b.rect);
-                    const aMoves = !a.isStatic;
-                    const bMoves = !b.isStatic;
+                    // Kinematic bodies follow their server-authored path. Contacts
+                    // can move dynamic bodies, but never deflect kinematic ones.
+                    const aMoves = !a.isStatic && !a.isKinematic;
+                    const bMoves = !b.isStatic && !b.isKinematic;
 
-                    const aShare = aMoves ? (bMoves ? 0.5 : 1) : 0;
-                    const bShare = bMoves ? (aMoves ? 0.5 : 1) : 0;
+                    let aShare = aMoves ? (bMoves ? 0.5 : 1) : 0;
+                    let bShare = bMoves ? (aMoves ? 0.5 : 1) : 0;
+
+                    // Give boxes more of the horizontal contact correction so
+                    // a player's normal movement pushes them along more easily.
+                    // This only changes how overlap is resolved; it adds no
+                    // velocity, so box momentum remains unchanged.
+                    if (offset.x !== 0 && aMoves && bMoves
+                        && ((a.hasTag("player") && b.hasTag("box"))
+                            || (a.hasTag("box") && b.hasTag("player")))) {
+                        aShare = a.hasTag("box") ? 0.85 : 0.15;
+                        bShare = b.hasTag("box") ? 0.85 : 0.15;
+                    }
+
+                    // On vertical contact, move the upper body out of the
+                    // overlap. Splitting a landing correction between two
+                    // players pushes the supporting player into the floor and
+                    // makes stacked players slowly drift apart.
+                    if (offset.y !== 0 && aMoves && bMoves) {
+                        if (offset.y < 0) {
+                            aShare = 1;
+                            bShare = 0;
+                        } else {
+                            aShare = 0;
+                            bShare = 1;
+                        }
+                    }
 
                     const aPosition = Vec2.add(
                         { x: a.rect.x, y: a.rect.y },

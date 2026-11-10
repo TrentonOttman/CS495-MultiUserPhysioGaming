@@ -125,7 +125,7 @@ describe("physio park prediction world", () => {
         if (other) {
             players.push({ sessionId: "other", x: 0, y: STANDING_Y, vx: 0, vy: 0, timeSinceGrounded: 0, connected: true, ...other });
         }
-        return { level: LEVEL_1, players, buttonPressFrame: 0, crateX: 0, crateY: 0 };
+        return { level: LEVEL_1, players, buttonPressFrame: 0, boxes: [] };
     }
 
     function standingAt(x: number, y = STANDING_Y): PredictedPlayerState {
@@ -170,8 +170,9 @@ describe("physio park prediction world", () => {
         const world = new PhysioParkPredictionWorld("me");
         world.adopt(snapshot({ x: 4, y: STANDING_Y }));
 
-        // Level 2's first conveyor (x 88-120, top at y 140) pushes riders right.
-        const onBelt = { x: 92, y: 140 - PLAYER_HEIGHT };
+        // Stand on Level 2's first authored conveyor.
+        const belt = LEVEL_2.conveyors![0].surface;
+        const onBelt = { x: belt.x + 4, y: belt.y - PLAYER_HEIGHT };
         world.adopt({ ...snapshot(onBelt), level: LEVEL_2 });
         const me = standingAt(onBelt.x, onBelt.y);
 

@@ -9,6 +9,8 @@ export interface SpriteSheetAnimationDefinition {
     frames: readonly number[];
     frameRate: number;
     repeat: number;
+    /** Phaser animation name; omitted for sprites advanced manually by server state. */
+    animationKey?: string;
     originX: number;
     originY: number;
     scaleX: number;
@@ -26,6 +28,7 @@ export interface SpriteFrameCollision {
 
 const conveyor = (side: "left" | "middle" | "right"): SpriteSheetAnimationDefinition => ({
     textureKey: `conveyor-${side}`,
+    animationKey: `conveyor-${side}-loop`,
     assetPath: `assets/Conveyor${side[0].toUpperCase()}${side.slice(1)}Sheet.png`,
     frameWidth: 16,
     frameHeight: 16,
@@ -40,6 +43,90 @@ const conveyor = (side: "left" | "middle" | "right"): SpriteSheetAnimationDefini
 
 /** Shared sprite and animation manifest for the client renderer and server. */
 export const PHYSIO_PARK_ANIMATIONS = {
+    playerIdle: {
+        textureKey: "idleSheet",
+        assetPath: "assets/RoboPicoIdle.png",
+        frameWidth: 16,
+        frameHeight: 16,
+        frames: [0],
+        frameRate: 10,
+        repeat: -1,
+        animationKey: "idle",
+        originX: 0,
+        originY: 0,
+        scaleX: 1,
+        scaleY: 1,
+    },
+    playerWalk: {
+        textureKey: "walkSheet",
+        assetPath: "assets/RoboPicoWalk.png",
+        frameWidth: 16,
+        frameHeight: 16,
+        frames: [0, 1, 2, 3, 4],
+        frameRate: 10,
+        repeat: -1,
+        animationKey: "walk",
+        originX: 0,
+        originY: 0,
+        scaleX: 1,
+        scaleY: 1,
+    },
+    playerJump: {
+        textureKey: "jumpSheet",
+        assetPath: "assets/RoboPicoJump.png",
+        frameWidth: 16,
+        frameHeight: 16,
+        frames: [0],
+        frameRate: 10,
+        repeat: -1,
+        animationKey: "jump",
+        originX: 0,
+        originY: 0,
+        scaleX: 1,
+        scaleY: 1,
+    },
+    goalFlag: {
+        textureKey: "flagSheet",
+        assetPath: "assets/FlagSheet.png",
+        frameWidth: 16,
+        frameHeight: 16,
+        frames: [0, 1, 2, 3, 4],
+        frameRate: 8,
+        repeat: -1,
+        animationKey: "flag",
+        originX: 0.5,
+        originY: 1,
+        scaleX: 1,
+        scaleY: 1,
+    },
+    switchActivate: {
+        textureKey: "switchSheet",
+        assetPath: "assets/Switch.png",
+        frameWidth: 16,
+        frameHeight: 16,
+        frames: [0, 1, 2, 3, 4],
+        frameRate: 16,
+        repeat: 0,
+        animationKey: "switch-activate",
+        originX: 0.5,
+        originY: 0.5,
+        scaleX: 1,
+        scaleY: 1,
+    },
+    switchDeactivate: {
+        textureKey: "switchSheet",
+        assetPath: "assets/Switch.png",
+        frameWidth: 16,
+        frameHeight: 16,
+        frames: [4, 3, 2, 1, 0],
+        frameRate: 16,
+        repeat: 0,
+        animationKey: "switch-deactivate",
+        originX: 0.5,
+        originY: 0.5,
+        scaleX: 1,
+        scaleY: 1,
+    },
     conveyorLeft: conveyor("left"),
     conveyorMiddle: conveyor("middle"),
     conveyorRight: conveyor("right"),

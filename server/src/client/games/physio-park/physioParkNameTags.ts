@@ -1,7 +1,7 @@
-import Phaser from "phaser";
-import type { Player } from "../../rooms/schema/PhysioParkState.js";
-import { PLAYER_WIDTH } from "../../shared/physioPark/physioParkConstants.js";
-import { getPlayerLabel, type DisplayNameLookup } from "../../shared/physioPark/physioParkNames.js";
+﻿import Phaser from "phaser";
+import type { Player } from "../../../rooms/schema/PhysioParkState.js";
+import { PLAYER_WIDTH } from "../../../shared/physioPark/physioParkConstants.js";
+import { getPlayerLabel, type DisplayNameLookup } from "../../../shared/physioPark/physioParkNames.js";
 
 /** Gap between the top of a player's sprite and the bottom of its name, in world pixels. */
 const TAG_GAP = 2;
@@ -112,3 +112,4 @@ export class PlayerNameTags {
         this.tags.clear();
     }
 }
+

@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { PhysioParkScene } from "./games/physio-park"
 
 export interface PlayerInfo {
     name: string;
@@ -32,7 +31,7 @@ const ROW_ALPHA = 0.85;
 const EMPTY_ROW_ALPHA = 0.85;
 
 export function createStatBoard(
-    scene: PhysioParkScene,
+    scene: Phaser.Scene,
     playerInfo: PlayerInfo[]
 ): StatBoardView {
     const panel = scene.add.container(0, 0).setDepth(1000);
@@ -138,6 +137,8 @@ export function createStatBoard(
                 rowBackground.setFillStyle(player.color ?? ROW_COLOR, alpha);
                 nameLabel.setText(player.name);
                 deathLabel.setText(String(player.deaths));
+                playerIcon.setAlpha(1);
+                deathIcon.setAlpha(1);
                 playerIcon.setTint(player.color ?? ROW_COLOR);
                 playerIcon.setScale(4,4);
                 deathIcon.setScale(4,4);

@@ -1,18 +1,17 @@
-import type { Room } from "@colyseus/sdk";
+﻿import type { Room } from "@colyseus/sdk";
 import type { GameId } from "../../shared/games.js";
 
 const REJOIN_KEY = "colyseus-rejoin";
 
-function displayStatus(data: unknown)
-{
+function displayStatus(data: unknown) {
     const status = document.getElementById("status");
-    status.textContent = String(data);
+    if (!status) return;
+    status.textContent = typeof data === "string" ? data : String(data ?? "");
 }
 
-export function setupRoom<T>(room: Room<T>, gameId: GameId): Room<T>
-{
+export function setupRoom<T>(room: Room<T>, gameId: GameId): Room<T> {
     sessionStorage.setItem(
-        "colyseus-rejoin",
+        REJOIN_KEY,
         JSON.stringify({
             token: room.reconnectionToken,
             gameId,
@@ -21,8 +20,18 @@ export function setupRoom<T>(room: Room<T>, gameId: GameId): Room<T>
     );
 
     room.onReconnect(() => {
-        // the token is refreshed on every successful connection
-        sessionStorage.setItem("reconnectionToken", room.reconnectionToken);
+        const saved = sessionStorage.getItem(REJOIN_KEY);
+        if (!saved) return;
+
+        try {
+            const rejoinInfo = JSON.parse(saved) as { gameId: GameId; roomId: string };
+            sessionStorage.setItem(REJOIN_KEY, JSON.stringify({
+                ...rejoinInfo,
+                token: room.reconnectionToken,
+            }));
+        } catch {
+            sessionStorage.removeItem(REJOIN_KEY);
+        }
     });
 
     room.onLeave((code) => {
@@ -30,21 +39,13 @@ export function setupRoom<T>(room: Room<T>, gameId: GameId): Room<T>
         window.location.href = "../../index.html";
     });
 
-    const messageRoom = room as Room<any>;
-    messageRoom.onMessage("disconnect", (data) => {
-        displayStatus(data);
-    });
-
-    messageRoom.onMessage("leave", (data) => {
-        displayStatus(data);
-    });
-
-    
-
-    messageRoom.onMessage("gameEnded", (data) => {
-        sessionStorage.removeItem(REJOIN_KEY);
-
-        displayStatus(data ?? "The game has closed.");
+    room.onMessage("*", (messageType, data) => {
+        if (messageType === "disconnect" || messageType === "leave") {
+            displayStatus(data);
+        } else if (messageType === "gameEnded") {
+            sessionStorage.removeItem(REJOIN_KEY);
+            displayStatus(data ?? "The game has closed.");
+        }
     });
 
     return room;

@@ -4,9 +4,9 @@ Physio Park levels are authored in LDtk and converted to TypeScript for use by t
 server and Phaser client. Run the converter from the `server/` directory:
 
 ```sh
-npm run levels:convert -- ../docs/planning/ldtkLevel1/Level1.ldtk Level_1 ldtkLevel1
-npm run levels:convert -- ../docs/planning/ldtkLevel2/level2.ldtk Level_2 ldtkLevel2
-npm run levels:convert -- ../docs/planning/ldtkLevel3/level2.ldtk Level_3 ldtkLevel3
+npm run levels:convert -- ../docs/planning/ldtkLevel1/Level1.ldtk     Level_1 ldtkLevel1
+npm run levels:convert -- ../docs/planning/ldtkLevel2/PhysioPark.ldtk Level_2 ldtkLevel2
+npm run levels:convert -- ../docs/planning/ldtkLevel3/PhysioPark.ldtk Level_3 ldtkLevel3
 ```
 
 The arguments are the LDtk project path, the level identifier to convert, and the

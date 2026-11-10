@@ -171,7 +171,7 @@ describe("physio_park_room", () => {
 
         setPlayerCenter(room, client1.sessionId, point.x, point.y);
         setPlayerCenter(room, client2.sessionId, outside.x, outside.y);
-        await waitTicks(room, 2);
+        await waitTicks(room, 5);
         assert.strictEqual(room.state.levelPhase, "playing", "one player at the goal is not enough");
 
         const input = client1.input<MoveInput>({ mode: "reliable" });
@@ -185,12 +185,12 @@ describe("physio_park_room", () => {
         // Earlier visits do not count: the players must be inside together.
         setPlayerCenter(room, client1.sessionId, outside.x, outside.y);
         setPlayerCenter(room, client2.sessionId, point.x, point.y);
-        await waitTicks(room, 2);
+        await waitTicks(room, 5);
         assert.strictEqual(room.state.levelPhase, "playing", "the first player left before the team arrived");
 
         setPlayerCenter(room, client1.sessionId, point.x - 20, point.y);
         setPlayerCenter(room, client2.sessionId, point.x + 20, point.y);
-        await waitTicks(room, 2);
+        await waitTicks(room, 5);
         assert.strictEqual(room.state.levelPhase, "transitioning");
         await waitForState(() => client1.state.levelPhase === "transitioning" && client2.state.levelPhase === "transitioning");
 

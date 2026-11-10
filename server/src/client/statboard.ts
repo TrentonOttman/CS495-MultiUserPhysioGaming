@@ -102,24 +102,34 @@ export function createStatBoard(
             EMPTY_ROW_ALPHA,
         );
         const nameLabel = scene.add.text(
-            left + 12,
+            left + 110,
             rowY,
             '',
             TEXT_STYLE
-        ).setOrigin(0, 0.5);
+        ).setOrigin(0.3, 0.5);
+        const playerIcon = scene.add.image(
+            left + 12,
+            rowY,
+            "PicoIcon"
+        ).setOrigin(0,0.5);
         const deathLabel = scene.add.text(
             right - 12,
             rowY,
             '',
             TEXT_STYLE
         ).setOrigin(1, 0.5);
+        const deathIcon = scene.add.image(
+            right - 50,
+            rowY,
+            "DeathIcon"
+        ).setOrigin(0.7,0.5);
 
-        panel.add([rowBackground, nameLabel, deathLabel]);
-        return { rowBackground, nameLabel, deathLabel };
+        panel.add([rowBackground, nameLabel, deathLabel, playerIcon, deathIcon]);
+        return { rowBackground, nameLabel, deathLabel, playerIcon, deathIcon};
     });
 
     const update = (players: PlayerInfo[]) => {
-        rows.forEach(({ rowBackground, nameLabel, deathLabel }, index) => {
+        rows.forEach(({ rowBackground, nameLabel, deathLabel, playerIcon, deathIcon }, index) => {
             const player = players[index];
 
             if (player) {
@@ -127,9 +137,18 @@ export function createStatBoard(
                 rowBackground.setFillStyle(player.color ?? ROW_COLOR, alpha);
                 nameLabel.setText(player.name);
                 deathLabel.setText(String(player.deaths));
+                playerIcon.setTint(player.color ?? ROW_COLOR);
+                playerIcon.setScale(4,4);
+                deathIcon.setScale(4,4);
+            }
+            else
+            {
+                playerIcon.setAlpha(0);
+                deathIcon.setAlpha(0);
             }
         });
     };
+
 
     update(playerInfo);
 

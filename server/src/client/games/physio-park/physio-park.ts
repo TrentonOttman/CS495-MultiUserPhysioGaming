@@ -69,6 +69,8 @@ class PhysioParkScene extends Phaser.Scene {
     preload() {
         this.load.image("flagPole", "assets/FlagPole.png");
         this.load.image("crate16", "assets/Crate16x16.png");
+        this.load.image("DeathIcon", "assets/DeathIcon.png");
+        this.load.image("PicoIcon", "assets/PicoIcon.png");
         this.load.image("crate32", "assets/Crate32x32.png");
         this.load.image("moving-platform-stone-16", "assets/Stone16x16.png");
         this.load.image("moving-platform-stone-24", "assets/Stone24x24.png");

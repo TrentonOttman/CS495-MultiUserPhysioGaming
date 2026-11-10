@@ -1,5 +1,5 @@
 ﻿import { Predict, type InputHandle, type Room } from "@colyseus/sdk";
-import type { PhysioParkRoom } from "../../../rooms/PhysioParkRoom.js";
+import type { PhysioParkRoom } from "../../../rooms/physio-park/PhysioParkRoom.js";
 import type { MoveInput, Player } from "../../../rooms/schema/PhysioParkState.js";
 import { PhysioParkPredictionWorld, snapshotOf } from "../../../shared/physioPark/physioParkPrediction.js";
 

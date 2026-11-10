@@ -1,7 +1,7 @@
 import Phaser from "phaser";
 import { Callbacks, type ColyseusSDK, type InputHandle, type Room } from "@colyseus/sdk";
 import type { default as server } from "../../../app.config.js";
-import type { PhysioParkRoom } from "../../../rooms/PhysioParkRoom.js";
+import type { PhysioParkRoom } from "../../../rooms/physio-park/PhysioParkRoom.js";
 import type { MoveInput, Player } from "../../../rooms/schema/PhysioParkState.js";
 import {
     PHYSIO_PARK_ANIMATIONS,

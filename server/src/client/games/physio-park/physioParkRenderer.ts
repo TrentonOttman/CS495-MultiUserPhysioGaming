@@ -1,6 +1,6 @@
 import Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
-import type { PhysioParkRoom } from "../../../rooms/PhysioParkRoom.js";
+import type { PhysioParkRoom } from "../../../rooms/physio-park/PhysioParkRoom.js";
 import {
     PHYSIO_PARK_ANIMATIONS,
     type SpriteSheetAnimationDefinition,

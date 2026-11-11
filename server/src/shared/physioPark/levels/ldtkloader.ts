@@ -248,7 +248,7 @@ if (collisionLayer && collisionLayer.intGridCsv) {
             };
         },
 
-        isComplete(players, objectives) {
+          isComplete(players: any, objectives: any) {
             if (options.isComplete) return options.isComplete(players, objectives);
             const inside = allPlayersInsideGoalArea(players, goalArea);
             return button ? (objectives.buttonPressed && inside) : inside;

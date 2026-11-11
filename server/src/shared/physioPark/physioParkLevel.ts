@@ -1,7 +1,7 @@
 import { parseLDtkProjectLevel } from "./levels/ldtkloader.ts";
-
+export type { ResolvedPhysioParkLevel } from "./levels/types.js";
 import ldtkProjectJson from "./levels/PhysioPark.json";
-
+export { allPlayersInsideGoalArea } from "./levels/shared.js";
 
 export const PHYSIO_PARK_LEVELS = [
     //parseLDtkProjectLevel(ldtkProjectJson, { levelId: "Level_1" }),

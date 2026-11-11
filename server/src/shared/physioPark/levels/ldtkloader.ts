@@ -213,6 +213,15 @@ if (collisionLayer && collisionLayer.intGridCsv) {
         }
     }
 
+    const spawnX = spawns[0]?.x ?? (width / 2);
+    const spawnY = spawns[0]?.y ?? 0;
+    
+    const floorRect = rawSolids
+        .filter(s => spawnX >= s.x && spawnX <= s.x + s.width && s.y >= spawnY)
+        .sort((a, b) => a.y - b.y)[0];
+    
+    const groundY = floorRect ? floorRect.y : (spawnY || height - 32);
+
     return {
         id: targetLevel.identifier,
         name: targetLevel.identifier.replace("_", " "),
@@ -230,7 +239,7 @@ if (collisionLayer && collisionLayer.intGridCsv) {
         tiles,
         tilesets: { [tilesetKey]: "/assets/tilesets/AllTiles.png" },
         background: targetLevel.bgRelPath ? targetLevel.bgRelPath.replace("../../../server/public", "") : undefined,
-
+        groundY,
         spawnPoint(index: number) {
             const spawn = spawns[index % spawns.length] ?? { x: 0, y: 0 };
             return {

@@ -12,3 +12,10 @@ export const PHYSIO_PARK_LEVELS = [
 //parseLDtkProjectLevel(ldtkProjectJson, { levelId: "Level_5" }),
 
 ] as const;
+export const GROUND_Y = PHYSIO_PARK_LEVELS[0].groundY;
+
+
+/** The y-coordinate of a player's feet when standing on the ground. */
+/**
+export const GROUND_Y = GROUND_TOP;
+**/

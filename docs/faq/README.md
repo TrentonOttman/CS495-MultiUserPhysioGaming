@@ -1,7 +1,7 @@
 ## Project Handoff FAQ ##
 
 - Account Ownership
-    - The github project is forkable, and is currently owned by TrentonOttman a personal account
+    - The github project is forkable, and is currently owned by TrentonOttman, a personal account
     - The deployment is handled by github
 
 - Secrets
@@ -76,3 +76,8 @@ Add the game to the appropriate client-side game selection and initialization lo
         - The relevant files for the sensor are in server/src/sensor
         - For physio-park, sensorData.js is imported in server/src/client/games/physio-park.ts
         - Values are read from from sensorData.js to be used for inputs to control the characters
+
+- How to run the project locally
+    - Clone the repository
+    - Change directory to server
+    - Run "npm run dev"

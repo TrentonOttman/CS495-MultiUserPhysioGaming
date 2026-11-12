@@ -1,6 +1,6 @@
 # **CS 495 - Multi-User Physiological Computing**
 
-This repository represents a semester long project for CS 495 at The University of Alabama. The repository is forked from a previous semester's work. The original README can be seen at archive/flyworld/README.md
+This repository represents a semester long project for CS 495 at The University of Alabama. The repository is forked from a previous semester's work. The original README can be found in [the archive](archive/flyworld/README.md).
 
 **Project team members:** Trenton Ottman, Zara Ahmed, James Adler, Ansel Stinnett, and Jackson Wallace.
 

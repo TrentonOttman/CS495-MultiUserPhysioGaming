@@ -1,19 +1,21 @@
-import { LEVEL_1 } from "./levels/level1.js";
-import { LEVEL_2 } from "./levels/level2.js";
-import { LEVEL_3 } from "./levels/level3.js";
-import { allPlayersInsideGoalArea, GROUND_TOP } from "./levels/shared.js";
-import type { ResolvedPhysioParkLevel } from "./levels/types.js";
-
+import { parseLDtkProjectLevel } from "./levels/ldtkloader.ts";
 export type { ResolvedPhysioParkLevel } from "./levels/types.js";
-export type { LevelObjectiveState, PlayerPoint } from "./levels/types.js";
-export { allPlayersInsideGoalArea };
+import ldtkProjectJson from "./levels/PhysioPark.json";
+export { allPlayersInsideGoalArea } from "./levels/shared.js";
+
+export const PHYSIO_PARK_LEVELS = [
+    //parseLDtkProjectLevel(ldtkProjectJson, { levelId: "Level_1" }),
+   parseLDtkProjectLevel(ldtkProjectJson, { levelId: "Level_1" }),
+    parseLDtkProjectLevel(ldtkProjectJson, { levelId: "Level_2" }),
+    parseLDtkProjectLevel(ldtkProjectJson, { levelId: "Level_3" }),
+   parseLDtkProjectLevel(ldtkProjectJson, { levelId: "Level_4" }),
+//parseLDtkProjectLevel(ldtkProjectJson, { levelId: "Level_5" }),
+
+] as const;
+export const GROUND_Y = PHYSIO_PARK_LEVELS[0].groundY;
+
 
 /** The y-coordinate of a player's feet when standing on the ground. */
+/**
 export const GROUND_Y = GROUND_TOP;
-
-/** Registry order determines the shared level number and progression order. */
-export const PHYSIO_PARK_LEVELS: readonly ResolvedPhysioParkLevel[] = [
-    LEVEL_1,
-    LEVEL_2,
-    LEVEL_3,
-];
+**/

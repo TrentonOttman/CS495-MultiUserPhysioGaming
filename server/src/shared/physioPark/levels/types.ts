@@ -62,6 +62,7 @@ export interface ResolvedPhysioParkLevel {
     goalFlagPosition?: { x: number; y: number };
     spawnPoint(index: number): { x: number; y: number };
     isComplete(players: readonly PlayerPoint[], objectives: LevelObjectiveState): boolean;
+    groundY: number;
 }
 
 export interface PlayerPoint { x: number; y: number; }

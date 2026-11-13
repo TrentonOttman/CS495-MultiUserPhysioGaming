@@ -42,8 +42,6 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     private inputLockedUntilFresh = new Set<string>();
     private buttonBody: Body | undefined;
     private buttonPressTick = 0;
-    private movingPlatformBodies = new Map<string, Body>();
-    private boxBodies = new Map<string, Body>();
     private respawningPlayers = new Set<string>();
 
     /** Physics steps at 60 Hz; state patches are sent at 30 Hz. */

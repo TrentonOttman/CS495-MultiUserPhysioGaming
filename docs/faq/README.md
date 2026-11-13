@@ -2,21 +2,29 @@
 
 - Account Ownership
     - The github project is forkable, and is currently owned by TrentonOttman, a personal account
-    - The deployment is handled by github
+    - The deployment is handled on Trenton's personal account currently
+        - The plan is for Doctor Crawford to handle deployment after our team is done
 
 - Secrets
     - N/A
 
 - Hosting Costs
-    - TBD
+    - Hosting for this semester has been done on google cloud
+        - Costs for this semester have totaled around $1.67
+    - Doctor Crawford has stated he will handle hosting costs moving forwards
 
 - Third-Party Limits
     - Phaser
     - Colyseus
+    - ldtk
+        - Used in creation of levels for physio park
     - Node.js with version >= 22.12.0
         - npm
 
 - data persistence/backups
+    - Is there data persistence?
+        - No databases are used, data persistence is handled in the servers memory
+        - The server does store a file, server/.devmode.json, which can reload rooms in development mode
     - Colyseus server
         - Room states
         - Player info
@@ -45,29 +53,29 @@
 
 
 
-Add the game to the appropriate client-side game selection and initialization logic.
-    - How do join codes work
-        - Generate a unique six-character join code whenever a new lobby is created. Codes use a restricted alphabet that excludes easily confused characters such as 0, O, 1, I, and L.
-        - Store the generated code in the lobby's replicated state (LobbyState.joinCode) so the host and players in that lobby can see it.
-        - Maintain a server-side mapping between each join code and its corresponding Colyseus lobby room ID in server/src/lobby/joinCodeIndex.ts.
-        - Display the join code in the lobby waiting-room interface so the host can share it with other players.
-        - Allow players to enter a join code through the code form in server/src/client/lobby.ts.
-        - Normalize entered codes by trimming whitespace, converting letters to uppercase, and removing spaces and hyphens. This allows codes to be entered in different formats.
-        - Resolve the submitted code to a lobby room ID through the /api/lobby/resolve/:code endpoint registered in server/src/app.config.ts.
-        - Use the returned room ID to join the lobby with Colyseus joinById(), passing the join code along with the player's display name.
-        - Validate the join code again on the server in LobbyRoom.authorizeJoin(). Private lobbies require a valid code matching that specific room, while public lobbies can be joined without one.
-        - Apply rate limiting to the join code resolution endpoint to reduce code guessing attempts. The current limit is 10 requests per IP address per minute.
-        - Release the join code from the server-side index when its lobby is disposed so expired codes cannot be used to find an ended lobby.
+- How do join codes work
+    - Generate a unique six-character join code whenever a new lobby is created. Codes use a restricted alphabet that excludes easily confused characters such as 0, O, 1, I, and L.
+    - Store the generated code in the lobby's replicated state (LobbyState.joinCode) so the host and players in that lobby can see it.
+    - Maintain a server-side mapping between each join code and its corresponding Colyseus lobby room ID in server/src/lobby/joinCodeIndex.ts.
+    - Display the join code in the lobby waiting-room interface so the host can share it with other players.
+    - Allow players to enter a join code through the code form in server/src/client/lobby.ts.
+    - Normalize entered codes by trimming whitespace, converting letters to uppercase, and removing spaces and hyphens. This allows codes to be entered in different formats.
+    - Resolve the submitted code to a lobby room ID through the /api/lobby/resolve/:code endpoint registered in server/src/app.config.ts.
+    - Use the returned room ID to join the lobby with Colyseus joinById(), passing the join code along with the player's display name.
+    - Validate the join code again on the server in LobbyRoom.authorizeJoin(). Private lobbies require a valid code matching that specific room, while public lobbies can be joined without one.
+    - Apply rate limiting to the join code resolution endpoint to reduce code guessing attempts. The current limit is 10 requests per IP address per minute.
+    - Release the join code from the server-side index when its lobby is disposed so expired codes cannot be used to find an ended lobby.
 
 
 - Physio Park Level Creation
     - How to create a level for physio-park
-        - create a level on https://ldtk.io
-        - use server/scripts/convert-ldtk.mjs to convert the level file into a .ts file
-        - put the converted .ts file into server/src/shared/physioPark/levels
-        - create a level#.ts file in server/src/shared/physioPark/levels which follows the format of the other level#.ts files
-        - In server/src/shared/physioPark/physioParkLevel.ts import the level#.ts file 
-        - Add the imported level to "PHYSIO_PARK_LEVELS," the list of levels in server/src/shared/physioPark/physioParkLevel.ts
+        - Download ldtk from https://ldtk.io
+        - Load the .json or .ldtk file located in server/src/shared/physioPark/levels with ldtk
+        - Click "CREATE A NEW LEVEL" and resize to fit your needs
+        - Add a spawnpoint and goal area to the level along with whatever else you would like
+        - Use server/scripts/convert-ldtk.mjs to convert the level file into a .ts file
+        - Put the converted .ts file into server/src/shared/physioPark/levels replacing the previous .ts file
+        - In server/src/shared/physioPark/physioParkLevel.ts add parseLDtkProjectLevel(ldtkProjectJson, { levelId: "put your level's ID here" }) in "PHYSIO_PARK_LEVELS"
 
 - Sensor Information
     - How does the sensor connect

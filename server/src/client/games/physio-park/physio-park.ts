@@ -62,6 +62,9 @@ class PhysioParkScene extends Phaser.Scene {
     private keys: PlayerKeys;
     private inputAccumulator = 0;
 
+    private dyingPlayers = new Set<string>();
+    private celebrating = false;
+
     constructor(private readonly room: Room<PhysioParkRoom["state"]>) {
         super("physio-park");
     }
@@ -182,6 +185,33 @@ class PhysioParkScene extends Phaser.Scene {
             window.removeEventListener("keyup", onWindowKeyUp, true);
             window.removeEventListener("blur", onWindowBlur);
         });
+        this.room.onMessage("player-death", ({ sessionId }: { sessionId: string }) => {
+            const sprite = this.playerEntities.get(sessionId);
+
+            if (!sprite || this.dyingPlayers.has(sessionId)) return;
+
+            this.dyingPlayers.add(sessionId);
+
+            // Resume normal animation handling after death animation finishes.
+            sprite.once("animationcomplete-death", () => {
+                this.dyingPlayers.delete(sessionId);
+            });
+
+            sprite.play("death", true);
+        });
+        this.room.onMessage("level-transition", ( bool: boolean ) => {
+            for (const [sessionId, sprite] of this.playerEntities)
+            {
+                if (bool) {
+                    sprite.play("celebrate", true);
+                    this.celebrating = true;
+                }
+                else
+                {
+                    this.celebrating = false;
+                }
+            }
+        });
     }
 
     update(time: number, delta: number) {
@@ -289,6 +319,7 @@ class PhysioParkScene extends Phaser.Scene {
             const motion = this.prediction?.motion(player, sessionId) ?? player;
             const moving = Math.abs(motion.vx) >= 0.0001;
             if (moving) sprite.setFlipX(motion.vx < 0);
+            if (this.dyingPlayers.has(sessionId) || this.celebrating) continue;
             const animation = motion.timeSinceGrounded > 0
                 ? PHYSIO_PARK_ANIMATIONS.playerJump.animationKey!
                 : moving

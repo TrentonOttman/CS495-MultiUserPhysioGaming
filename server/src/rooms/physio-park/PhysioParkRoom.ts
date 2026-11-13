@@ -13,6 +13,7 @@ import {
     PLAYER_WIDTH,
     PLAYER_WIDTH_HALF,
     TICK_RATE,
+    LAVA_RESPAWN_DELAY,
 } from "../../shared/physioPark/physioParkConstants.js";
 import { applyPlayerInput, NO_INPUT } from "../../shared/physioPark/physioParkInput.js";
 import { PHYSIO_PARK_LEVELS, type ResolvedPhysioParkLevel } from "../../shared/physioPark/physioParkLevel.js";
@@ -42,6 +43,7 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     private inputLockedUntilFresh = new Set<string>();
     private buttonBody: Body | undefined;
     private buttonPressTick = 0;
+    private respawningPlayers = new Set<string>();
     private movingPlatformBodies = new Map<string, Body>();
     private boxBodies = new Map<string, Body>();
 
@@ -301,12 +303,15 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
             return;
         }
 
+        this.broadcast("level-transition", true);
+
         this.state.levelPhase = "transitioning";
         this.transitionScheduled = true;
         this.clock.setTimeout(() => {
             if (!this.transitionScheduled || this.state.levelPhase !== "transitioning") return;
             this.transitionScheduled = false;
             this.loadLevel(this.currentLevelIndex + 1);
+            this.broadcast("level-transition", false);
         }, LEVEL_TRANSITION_DELAY_MS);
     }
 
@@ -413,16 +418,24 @@ export class PhysioParkRoom extends LobbyCapableRoom<PhysioParkState, MoveInput>
     private respawnFromLava(body: Body) {
         if (body.isSensor) return;
         const sessionId = this.sessionByBody.get(body);
-        if (!sessionId) return;
+        if (!sessionId || this.respawningPlayers.has(sessionId)) return;
         const player = this.state.players.get(sessionId);
         if (!player?.connected) return;
 
+        this.respawningPlayers.add(sessionId);
+
+        this.broadcast("player-death", { sessionId });
+
         const spawn = this.currentLevel.spawnPoint(this.spawnIndex.get(sessionId) ?? 0);
-        body.rect.x = spawn.x;
-        body.rect.y = spawn.y;
-        body.velocity = { x: 0, y: 0 };
-        body.timeSinceGrounded = 0;
-        this.state.deathCount.set(sessionId, (this.state.deathCount.get(sessionId) ?? 0) + 1);
+        this.clock.setTimeout(() => {
+            body.rect.x = spawn.x;
+            body.rect.y = spawn.y;
+            body.velocity = { x: 0, y: 0 };
+            body.timeSinceGrounded = 0;
+
+            this.state.deathCount.set(sessionId, (this.state.deathCount.get(sessionId) ?? 0) + 1);
+            this.respawningPlayers.delete(sessionId);
+        }, LAVA_RESPAWN_DELAY);
     }
 
     // Immediately kill the room on restore to avoid crashing on stale physics state.

@@ -36,3 +36,5 @@ export const PLAYER_HEIGHT_HALF = PLAYER_HEIGHT / 2;
 
 /** Allow players to jump 0.2 seconds after leaving the ground. */
 export const COYOTE_TIME = Math.floor(0.2 * TICK_RATE);
+
+export const LAVA_RESPAWN_DELAY = 500;

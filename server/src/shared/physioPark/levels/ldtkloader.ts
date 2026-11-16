@@ -99,7 +99,7 @@ if (collisionLayer && collisionLayer.intGridCsv) {
     const convRight = getRectsFromGrid(convRightRows);
 
     var conveyors = [
-        ...convLeft.map(surface => ({ surface, pushSpeed: 28 })),
+        ...convLeft.map(surface => ({ surface, pushSpeed: -28 })),
         ...convRight.map(surface => ({ surface, pushSpeed: 28 }))
     ];
 } 

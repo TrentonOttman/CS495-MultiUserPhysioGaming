@@ -54,7 +54,7 @@
 
 
 - How do join codes work
-    - Generate a unique six-character join code whenever a new lobby is created. Codes use a restricted alphabet that excludes easily confused characters such as 0, O, 1, I, and L.
+    - Generate a unique six-character join code whenever a new lobby is created. Codes use a restricted alphabet that excludes easily confused characters such as 0, O, 1, I and L.
     - Store the generated code in the lobby's replicated state (LobbyState.joinCode) so the host and players in that lobby can see it.
     - Maintain a server-side mapping between each join code and its corresponding Colyseus lobby room ID in server/src/lobby/joinCodeIndex.ts.
     - Display the join code in the lobby waiting-room interface so the host can share it with other players.
@@ -73,11 +73,16 @@
         - Load the .json or .ldtk file located in server/src/shared/physioPark/levels with ldtk
         - Click "CREATE A NEW LEVEL" and resize to fit your needs
         - Add a spawnpoint and goal area to the level along with whatever else you would like
-        - Use server/scripts/convert-ldtk.mjs to convert the level file into a .ts file
-        - Put the converted .ts file into server/src/shared/physioPark/levels replacing the previous .ts file
+        - Update the .json or .ldtk file with the new one.
         - In server/src/shared/physioPark/physioParkLevel.ts add parseLDtkProjectLevel(ldtkProjectJson, { levelId: "put your level's ID here" }) in "PHYSIO_PARK_LEVELS"
+        - Test out the new level
+            - Levels are handled by the files in server/src/shared/physioPark/levels
 
 - Sensor Information
+    - How to wear the sensor pads
+        - Put the ground pad on the bony part of your elbow
+        - Put the other two pads spaced apart on the same muscle
+            - For example put one on the wrist and the other further along the forearm
     - How does the sensor connect
         - The sensor uses bluetooth to connect to a device
     - How does the project interface with the sensor
@@ -88,4 +93,6 @@
 - How to run the project locally
     - Clone the repository
     - Change directory to server
+    - Install dependencies with npm
+    - Change directory to server "cd server"
     - Run "npm run dev"

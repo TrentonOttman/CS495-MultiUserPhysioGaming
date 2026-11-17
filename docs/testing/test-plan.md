@@ -52,6 +52,8 @@ npx mocha -r tsx -r ./test/root-hooks.ts test/PhysioParkRoom.test.ts --exit --ti
 
 `.github/workflows/ci.yml` runs on every pull request and every push to `main`. It uses Node 22 and runs `npm ci`, `npx tsc --noEmit`, `npm test`, and `npm run build`. A pull request should not be merged while this check is failing.
 
+`.github/workflows/codeql.yml` also runs GitHub's CodeQL security scan. It looks for security problems in the code; it does not run the tests.
+
 ## Test Case Inventory
 
 Automated tests live in `server/test/`. The test server is started once for the whole run by `test/root-hooks.ts` using `test/harness.ts` (`@colyseus/testing`).
@@ -173,8 +175,8 @@ Start the game with `npm run dev` and open the printed address. To simulate seve
 | M-03 | Movement and jumping | Move with A/D or ←/→, jump with W, ↑ or Space. | Player walks, jumps, and lands; walk/jump animations play |
 | M-04 | Stacking | Jump onto the other player's head, then have them walk. | Rider stays on top and is carried along |
 | M-05 | Name tags | Look at both windows. | Each player's name is above their character; your own name is bold; names don't overlap when standing together |
-| M-06 | Lava respawn | Walk into the lava. | Player respawns at their spawn point |
-| M-07 | Level transition | Get every player to the goal flag on levels 1 and 2. | Level completes only when everyone is at the goal; the next level loads for everyone, ending on level 3 |
+| M-06 | Lava death and respawn | Walk into the lava. | Death animation plays, the player respawns at their spawn point about half a second later, and their death count on the stat board goes up by 1 |
+| M-07 | Level transition | Get every player to the goal flag on levels 1 and 2. | Level completes only when everyone is at the goal; every player plays the celebration animation, then the next level loads for everyone, ending on level 3 |
 | M-08 | Level 2 button and crate | Stand on the button. | Button presses down and the crate drops |
 | M-09 | Disconnect and rejoin | Close one window mid-game, then rejoin from the page. | Name fades while disconnected; player returns to the same game |
 | M-10 | EMG sensor jump | Click **Connect** in the sensor panel and pair the sensor over Bluetooth. Adjust the sensitivity slider. Flex. | Sensor status shows connected; flexing makes the player jump |
@@ -211,5 +213,6 @@ A change is ready to merge when:
 - **Flaky test:** T-L08 (`allows only the host to kick a player...`) sometimes fails because it checks the roster right after the kick message arrives, before the server has finished removing the player. Re-run `npm test` if only this test fails.
 - **The EMG sensor** can only be tested manually with the physical sensor and a browser that supports Web Bluetooth (Chrome or Edge).
 - **Level completion has no automated test** since the PBI-31 removal (see the Physio Park room section). Level 2's button and crate and Level 3's switches and moving platforms are also manual-only.
-- **No load testing:** the target of 8 to 12 players has not been tested with real players or simulated clients.
+- **`npm run levels:convert` no longer works.** Its script was moved to `archive/scripts/` in CHORE-03, but `package.json` still points to `server/scripts/`. Levels are now loaded from `PhysioPark.json` by `ldtkloader.ts`, so the command may not be needed.
+- **No load testing:** the target of 8 to 12 players has not been tested with real players or simulated clients. `npm run loadtest` exists, but it only targets the old Pong room (`my_room`), not Physio Park.
 - **No accessibility, cross-browser, or deployed-server testing** yet. Lag is only simulated locally.

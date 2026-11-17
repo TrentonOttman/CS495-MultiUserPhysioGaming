@@ -1,124 +1,153 @@
 # PhysioGaming Deployment Guide
 
-This guide explains the project's current deployment on **Google Cloud Run**.
+This guide deploys the combined PhysioGaming web client and Colyseus multiplayer server to Google Cloud Run. It is written for a new maintainer deploying from a fresh Google Cloud project. The original deployment URL is provided as a reference, but its project and credentials are owned separately.
 
-## Overview
+## Architecture overview
 
-PhysioGaming is a web-based multiplayer game using **Node.js**, **Colyseus**, **Vite**, **TypeScript**, and **Phaser**. Its application code is in the repository's `server/` directory.
+PhysioGaming is a browser game built with Phaser and TypeScript. Vite builds the client and, through the Colyseus Vite plugin, the Node.js server. The production Node.js process serves the built client, HTTP endpoints, and Colyseus rooms/WebSocket connections from one Cloud Run service. The app source and npm project are in `server/`; deploy from that directory.
 
-The build packages both the web client and multiplayer server. The same Node.js service serves the website, HTTP APIs, and multiplayer connections; a separate frontend service is not required.
+```text
+Browser (HTTPS / WSS)
+        │
+Google Cloud Run HTTPS proxy
+        │
+One Node.js service (port 8080)
+  ├── Vite-built Phaser client
+  ├── HTTP API (/api/...)
+  └── Colyseus rooms over WebSockets
+```
 
-- **Repository:** https://github.com/TrentonOttman/CS495-MultiUserPhysioGaming
-- **Current hosting platform:** Google Cloud Run (`us-central1`)
-- **Existing deployment:** https://cs495-multiuserphysiogaming-iteration1-231223644907.us-central1.run.app/
-- **Application port:** `8080` in the current Colyseus/Vite configuration
-- **Node.js requirement:** `>=22.12.0`
+Rooms, join-code lookup, and join-code rate-limit counters are held in process memory. Use one instance for this prototype; a restart or deployment ends active sessions. The application does not require a database or a separate frontend host in this configuration.
 
-> The existing Cloud Run URL belongs to the original Google Cloud project. A new team or host should create its own deployment rather than rely on continued access to that account.
+| Reference | Value |
+| --- | --- |
+| Hosting platform | Google Cloud Run |
+| Original region | `us-central1` |
+| Original URL | [Open existing deployment](https://cs495-multiuserphysiogaming-iteration1-231223644907.us-central1.run.app/) |
+| Runtime | Node.js `>=22.12.0` |
+| Container port | `8080` (configured in `server/vite.config.ts`) |
+| Build/start | `npm run build` / `npm start` |
 
 ## Prerequisites
 
-For local builds or deployments, install:
+- Git access to this repository (or a fork).
+- Node.js 22.12 or newer and npm for local validation.
+- A Google account and a Google Cloud project with billing enabled.
+- Permission to enable APIs, create Cloud Run services and builds, and use Artifact Registry. The deployer also needs permission to act as the selected runtime service account.
+- Google Cloud CLI (`gcloud`) installed and authenticated for the command-line procedure below.
+- A domain name only if using a custom URL; the Cloud Run URL works without one.
 
-- Git
-- Node.js 22.12 or newer and npm
-- Access to the GitHub repository
-
-For Google Cloud deployment, also have:
-
-- A Google Cloud project with billing enabled
-- Permissions to manage Cloud Run services, builds, and the GitHub connection
-- The APIs required by the chosen Cloud Run deployment workflow enabled (typically Cloud Run, Cloud Build, and Artifact Registry)
-
-## Build and test locally
-
-Commands below are run from the repository root unless otherwise indicated.
+Enable the services used by the source deployment (one time per project):
 
 ```bash
-git clone https://github.com/TrentonOttman/CS495-MultiUserPhysioGaming.git
-cd CS495-MultiUserPhysioGaming/server
-npm ci
-npm run test
-npm run build
-npm start
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
 ```
 
-The build command runs `vite build` and generates `dist/client/` and `dist/server/`. The start command runs `node dist/server/server.mjs`.
+## Environment variables and secrets
 
-To run the development server instead:
+The application has no required runtime environment variables or third-party credentials in the current source. `server/.env.development` and `server/.env.production` currently contain sample placeholders only; do not copy those sample values into Cloud Run. Vite loads build-time environment files, and the client bundle is public, so never place private keys or secrets in a `VITE_` variable.
 
-```bash
-npm run dev
-```
+Cloud Run supplies `PORT` to containers; the current Colyseus/Vite plugin configuration sets the application port to `8080`. Do not set `NODE_ENV` to development in the public service: production mode disables the Colyseus `/monitor` and `/playground` routes and enables the security header behavior. If future code adds configuration, document its name, purpose, whether it is build-time or runtime, and the Secret Manager mapping here before deploying.
 
-Open the local URL printed by the development server. To verify the production build, use the address and port printed by `npm start` and request `/api/hello`, which should return `{"message":"Hello World"}`.
+| Name | Required | Purpose / handling |
+| --- | --- | --- |
+| `PORT` | Supplied by Cloud Run | Container listener port; app is configured for `8080`. |
+| `NODE_ENV` | No explicit setting required by this guide | Ensure the deployed runtime is production; verify buildpack defaults if changing deployment method. |
+| Third-party API keys | None currently | No external API key is needed for the documented deployment. |
 
-## Current deployment: Google Cloud Run with GitHub
+## External services and keys
 
-The original deployment was set up using **Cloud Run's GitHub repository integration**. Cloud Run connects to the repository, builds the application, and deploys a service. This section describes how a new maintainer can recreate that workflow; the exact options may differ with Google Cloud console updates.
+Cloud Run, Cloud Build, and Artifact Registry are Google Cloud services used to build and run the app. The repository's current runtime has no required external API integrations, database, or API keys. GitHub access is needed only if setting up repository-based continuous deployment. Use a dedicated least-privilege service account for production; do not commit credentials, service-account JSON, or `.env` secrets to Git.
 
-1. Sign in to the [Google Cloud Console](https://console.cloud.google.com/) and select a project with billing enabled.
-2. Open **Cloud Run** and create a service using the option to deploy continuously from a source repository.
-3. Connect GitHub, authorize repository access, and select `TrentonOttman/CS495-MultiUserPhysioGaming` (or a fork).
-4. Select the branch to deploy (for example, `main`).
-5. **Important:** The Node application lives in `server/`, not at the repository root. Configure the build context / source directory accordingly, or supply a build configuration that explicitly enters `server/`.
-6. Configure the build to install dependencies, run `npm run build`, and start the server using `npm start` (`node dist/server/server.mjs`). If the source-build workflow does not support these options directly, use an appropriate build configuration or Dockerfile instead.
-7. Configure the container port as `8080` and use region `us-central1` if matching the original deployment.
-8. Deploy the service. Configure public access only if the game is intended to be publicly accessible.
-9. Visit the new service URL and verify that the website loads, `/api/hello` responds, and two browser sessions can connect to the same lobby and play.
-10. Verify that subsequent pushes to the configured branch trigger builds and deploys in the connected workflow.
+## Step-by-step deployment (Google Cloud Run)
 
-**Record the new project's settings here during handoff:**
+The commands below use Bash syntax. Choose a globally unique Cloud Run service name; `physiogaming` is an example. Run the project and region setup once, then deploy from the `server/` directory.
 
-| Setting | Value |
-| --- | --- |
-| Google Cloud project ID | _To be filled in_ |
-| Cloud Run service name | _To be filled in_ |
-| Region | `us-central1` (original) |
-| Source repository / branch | _To be filled in_ |
-| Build configuration / working directory | _To be filled in_ |
-| Deployed service URL | _To be filled in_ |
-| Service account and required permissions | _To be filled in_ |
-| Environment variables / secrets | _To be filled in_ |
+1. Clone the source and install dependencies:
 
-### Multiplayer hosting considerations
+   ```bash
+   git clone https://github.com/TrentonOttman/CS495-MultiUserPhysioGaming.git
+   cd CS495-MultiUserPhysioGaming/server
+   npm ci
+   npm run build
+   ```
 
-Colyseus maintains active rooms and connections in server memory. When operating without shared room state or distributed coordination:
+2. Select the Google Cloud project and region. Replace the example project ID with a project you control:
 
-- **Use a maximum of one running application instance** for the initial deployment. Multiple independent instances can split users and lobby state across processes.
-- **Consider a minimum instance count of one** to avoid cold starts, while recognizing that it increases hosting cost.
-- **Expect interrupted games during deployments, restarts, and instance shutdowns.** The current guide does not claim persistent sessions or automatic reconnection across server replacement.
-- Cloud Run supports WebSocket connections, but they remain subject to **request timeouts**. Set and test an appropriate timeout, and verify that the client reconnects or displays a clear error after disconnection.
-- Check Cloud Run logs and metrics if clients cannot connect or rooms unexpectedly disappear.
+   ```bash
+   gcloud auth login
+   gcloud config set project YOUR_PROJECT_ID
+   gcloud config set run/region us-central1
+   gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com
+   ```
 
-Review these limits before hosting a larger production workload. Scaling to multiple instances would require additional architecture and testing.
+3. Deploy source from `server/`. Cloud Build builds the source; the Node package's `build` and `start` scripts provide the build and launch commands:
 
-## Verification checklist
+   ```bash
+   gcloud run deploy physiogaming \
+     --source . \
+     --region us-central1 \
+     --allow-unauthenticated \
+     --max 1 \
+     --timeout 3600
+   ```
 
-- [ ] The built application starts successfully in the chosen environment.
-- [ ] The main website loads over HTTPS when publicly hosted.
-- [ ] `GET /api/hello` returns `{"message":"Hello World"}`.
-- [ ] A user can create a lobby and another user can join it.
-- [ ] Two browsers can enter a multiplayer game and receive state updates.
-- [ ] WebSockets function through the hosting provider's proxy or load balancer.
-- [ ] Server logs are available and error-free during a basic multiplayer test.
-- [ ] A new deployment and server restart have been tested for expected user impact.
+   `--allow-unauthenticated` makes the game public. Remove it for a service that should require authenticated access. A single instance keeps in-memory Colyseus rooms together. The 3600-second timeout accommodates longer WebSocket sessions; sessions still end at timeout, instance shutdown, or deployment. Cloud Run may require a service identity and additional IAM setup depending on project policy.
+
+4. Copy the service URL printed by the deploy command. Cloud Run provisions HTTPS for its default `run.app` hostname. The client and server share the same origin, so no separate WebSocket URL or CORS setting is required for this deployment shape.
+
+5. For later releases, repeat the build and deploy from the same `server/` directory after updating the checked-out branch. To automate this, connect the repository to Cloud Run's continuous deployment workflow or create a Cloud Build trigger; select `server/` as the source/build context. Verify the build and start commands, service name, region, and instance limit in that workflow.
+
+6. Record the deployment details for the next maintainer:
+
+   | Setting | Deployed value |
+   | --- | --- |
+   | Google Cloud project ID | _Fill in_ |
+   | Cloud Run service name | _Fill in_ |
+   | Region | `us-central1` |
+   | Repository and branch | _Fill in_ |
+   | Build context | `server/` |
+   | Service URL | _Fill in_ |
+   | Runtime service account | _Fill in_ |
+   | Secrets / environment overrides | None currently; record future additions |
+
+## SSL, domain, and DNS
+
+The default `*.run.app` service URL is served over HTTPS by Cloud Run; browsers use secure WebSockets (WSS) through the same origin. No certificate or DNS changes are needed for the default URL.
+
+For a custom domain, use Cloud Run's domain mapping where available or place a supported Google Cloud load balancer in front of the service. Follow the console's mapping instructions to add the requested DNS records at the domain registrar, wait for DNS propagation and certificate provisioning, then verify the custom hostname loads over HTTPS and the multiplayer WebSocket connects securely. Do not point a custom hostname at the service until the mapping is configured.
+
+## Cost and hosting notes
+
+Cloud Run is usage-based; the actual bill depends on region, CPU and memory allocation, request and WebSocket duration, traffic, minimum instances, builds, and logs. Cloud Build and Artifact Registry can also incur charges. Review current Google Cloud pricing and the project's billing budget before public use; this guide does not assume a fixed monthly price. Setting a minimum instance count of one can reduce cold starts but increases cost while idle. The deployment command leaves the minimum at zero.
+
+Keep maximum instances at one for this in-memory multiplayer prototype. This limits horizontal scaling and may constrain availability or concurrency; increasing it can split lobbies and join-code lookups across independent processes. Multi-instance hosting needs shared room/coordination and lookup state, plus load testing. Deployments and instance recycling interrupt active matches. Monitor Cloud Run logs, instance count, CPU/memory, and request/WebSocket behavior after launch.
+
+## Post-deploy verification
+
+1. Open the service URL and confirm the game client loads without browser console errors.
+2. Request `https://YOUR_SERVICE_URL/api/hello`; expect HTTP 200 and `{"message":"Hello World"}`.
+3. In two separate browser sessions, create a lobby in one and join it from the other. Confirm both players appear and game state updates on both clients.
+4. Confirm the browser's multiplayer connection uses `wss://` and remains connected during a short match.
+5. Check Cloud Run logs for startup errors, failed requests, and WebSocket errors.
+6. Deploy a small follow-up revision and confirm the new revision starts. Expect current sessions to be interrupted when traffic switches or the old instance stops.
 
 ## Troubleshooting
 
-| Problem | What to check |
+| Symptom | Checks and remedies |
 | --- | --- |
-| Build fails | Node.js version, `npm ci`, source directory (`server/`), and build logs |
-| Website returns 404 | Whether the complete Vite build ran and `serveClient: true` is configured |
-| Service fails to start | Start command, `PORT`, container binding address, and Cloud Run logs |
-| One player cannot join another | WebSocket support, room routing, and whether more than one instance is running |
-| `/monitor` or `/playground` is missing | These routes are intentionally disabled when `NODE_ENV=production` |
-| Sessions disappear after redeploy | In-memory Colyseus rooms do not automatically survive instance replacement |
+| Build cannot find `package.json` or build fails | Deploy from `server/`, not repository root; use Node 22.12+ locally; inspect Cloud Build logs. |
+| Revision does not start / health check fails | Check Cloud Run revision logs, `npm start`, built `dist/server/server.mjs`, and port configuration. The app is configured for port 8080. |
+| Website is blank or returns 404 | Confirm `npm run build` completed and `dist/client/` was generated; confirm the production server serves the built client. |
+| `/api/hello` returns an error | Check the active revision and Cloud Run request logs; verify deployment completed successfully. |
+| One player cannot see another / rooms disappear | Keep maximum instances at one; confirm both sessions use the same service URL. Restarts and deployments clear in-memory rooms. |
+| WebSocket disconnects during a match | Check that the browser connects via `wss://`, the service URL/proxy is correct, and the Cloud Run timeout is appropriate. Reconnect after a timeout; active state is not persisted. |
+| `/monitor` or `/playground` is unavailable | These development routes are intentionally disabled when `NODE_ENV=production`. |
+| Custom domain has certificate or connection errors | Check DNS records against the Cloud Run mapping instructions, allow time for propagation and certificate provisioning, then test HTTPS and WSS again. |
+| Deploy command reports permission or API errors | Confirm project selection, billing, enabled APIs, deployer IAM permissions, and permission to use the runtime service account. |
 
-## Future handoff tasks
+## Maintainer follow-up
 
-- [ ] Add and test `server/Dockerfile` and `server/.dockerignore`.
-- [ ] Confirm the exact original GitHub-to-Cloud Run build settings and document them above.
-- [ ] Verify the server binds to `0.0.0.0` and respects `PORT` in each deployment environment.
-- [ ] Document any required environment variables, secret management, and access transfer.
-- [ ] Test deployment on a fresh Google Cloud project or an alternative container host.
+- Confirm the original Cloud Run build settings and whether the GitHub trigger is still active; those settings cannot be inferred from source alone.
+- After changing port, runtime settings, secrets, domain, or scaling, update this guide and repeat the verification steps.
+- Reassess architecture before allowing multiple instances or promising uninterrupted multiplayer sessions.

@@ -51,10 +51,10 @@ The client and server are both built and run from the `server` directory.
 1. Launch LDtk, click **Load**, and open `server/src/shared/physioPark/levels/PhysioPark.json`.
 2. Select **CREATE A NEW LEVEL** and place it on the canvas.
 3. Build your level using the three available layers:
-   - `Terrain`: Visual tiles only.
-   - `Collisions`: Solid boundaries and physical obstacles.
-   - `Entities`: Interactive objects, spawn points, and triggers.
-     > **Note:** Every level must include both a `SpawnPoint` and a `GoalArea` entity to function properly.
+    - `Terrain`: Visual tiles only.
+    - `Collisions`: Solid boundaries and physical obstacles.
+    - `Entities`: Interactive objects, spawn points, and triggers.
+      > **Note:** Every level must include both a `SpawnPoint` and a `GoalArea` entity to function properly.
 4. Save your changes to the project file (`Ctrl+S` / `Cmd+S`).
 5. Register the new level by adding its LDtk level identifier to `PHYSIO_PARK_LEVELS` in `server/src/shared/physioPark/physioParkLevel.ts`:
     ```ts
@@ -76,10 +76,21 @@ npm test
 
 All unit and integration tests live in `server/tests/`. For more information about this project's tests, see the [Testing Plan](/docs/testing/test-plan.md).
 
-## Coding & style standards 
+## Coding & Style Standards
 
-TODO...
+- **Respect Module Boundaries:** Keep domain logic within its respective directory (`client/`, `rooms/`, `sensor/`, `shared/`).
+- **Naming Conventions:**
+    - Use `camelCase` for variables, functions, and file names.
+    - Use `PascalCase` for classes, interfaces, types, and LDtk entity identifiers.
+- **TypeScript Usage:** Avoid using the `any` type when possible.
+- **Type Checking (CI Requirement):** `npx tsc --noEmit` runs automatically on every pull request. Run it inside the `server` directory before opening or updating a PR to catch TypeScript errors early:
+    ```sh
+    npx tsc --noEmit
+    ```
 
-## Known gotchas & caveats 
+## Known Gotchas & Caveats
 
-TODO...
+- Adding a level inside `PhysioPark.json` in LDtk does not automatically make it playable, you must manually register its level ID.
+- Physics and collision logic in `shared/` must remain deterministic to avoid the client and server desyncing.
+- Pong is currently bugged and sometimes does not load properly for one player.
+- Most **PhysioPark** levels are designed around a two-player experience despite supporting up to eight players in one lobby.
